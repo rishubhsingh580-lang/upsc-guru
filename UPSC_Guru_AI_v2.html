@@ -1,0 +1,1578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UPSC Guru AI — Gemini</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080c14;
+    --surface: #0d1420;
+    --card: #111827;
+    --border: #1e2d45;
+    --accent: #22d3ee;
+    --gold: #f59e0b;
+    --green: #10b981;
+    --rose: #f43f5e;
+    --purple: #a78bfa;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --font-display: 'Syne', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:var(--font-body); min-height:100vh; }
+
+  /* HERO */
+  .hero {
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 2rem;
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content:''; position:absolute; inset:0;
+    background: radial-gradient(ellipse 80% 50% at 50% -10%, #0ea5e920, transparent),
+                radial-gradient(ellipse 60% 40% at 80% 80%, #7c3aed15, transparent);
+    pointer-events:none;
+  }
+  .hero-badge {
+    display:inline-flex; align-items:center; gap:.5rem;
+    background:#0ea5e910; border:1px solid #0ea5e930;
+    color:var(--accent); font-size:.75rem; font-weight:600;
+    letter-spacing:.1em; text-transform:uppercase;
+    padding:.4rem 1rem; border-radius:99px; margin-bottom:2rem;
+  }
+  .dot { width:8px; height:8px; background:var(--accent); border-radius:50%; animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.2)} }
+  .hero h1 {
+    font-family:var(--font-display); font-size:clamp(3rem,8vw,6rem);
+    font-weight:800; line-height:1.05; text-align:center;
+    margin-bottom:1.5rem; max-width:900px;
+  }
+  .hero h1 span { color:var(--accent); }
+  .hero p { color:var(--muted); font-size:1.1rem; text-align:center; max-width:560px; line-height:1.7; margin-bottom:3rem; }
+
+  /* INPUT AREA */
+  .input-card {
+    background:var(--card); border:1px solid var(--border);
+    border-radius:24px; padding:2rem; width:100%; max-width:700px;
+    box-shadow: 0 0 60px #0ea5e910;
+  }
+  .input-label { font-size:.8rem; color:var(--muted); text-transform:uppercase; letter-spacing:.1em; margin-bottom:.75rem; display:block; }
+  .input-field {
+    width:100%; background:#0d1420; border:1px solid var(--border);
+    border-radius:12px; padding:1rem 1.25rem; color:var(--text);
+    font-family:var(--font-body); font-size:1rem; resize:none;
+    outline:none; transition:border-color .2s;
+    min-height:80px;
+  }
+  .input-field:focus { border-color:var(--accent); }
+  .input-field::placeholder { color:var(--muted); }
+  .btn-analyze {
+    width:100%; margin-top:1rem; padding:1rem;
+    background:linear-gradient(135deg,#0ea5e9,#6366f1);
+    border:none; border-radius:12px; color:#fff;
+    font-family:var(--font-display); font-size:1rem; font-weight:700;
+    cursor:pointer; transition:opacity .2s, transform .1s;
+    display:flex; align-items:center; justify-content:center; gap:.75rem;
+  }
+  .btn-analyze:hover { opacity:.9; }
+  .btn-analyze:active { transform:scale(.98); }
+  .btn-analyze:disabled { opacity:.5; cursor:not-allowed; }
+
+  /* PROGRESS */
+  .progress-section { width:100%; max-width:700px; margin-top:2rem; display:none; }
+  .progress-section.active { display:block; }
+  .progress-step {
+    display:flex; align-items:center; gap:1rem;
+    padding:.75rem 1rem; border-radius:10px;
+    margin-bottom:.5rem; background:var(--card);
+    border:1px solid var(--border); font-size:.9rem;
+    transition:all .3s;
+  }
+  .progress-step.running { border-color:var(--accent); background:#0ea5e905; }
+  .progress-step.done { border-color:var(--green); background:#10b98105; }
+  .progress-step.error { border-color:var(--rose); background:#f43f5e05; }
+  .step-icon { font-size:1.2rem; width:28px; text-align:center; }
+  .spinner { width:20px; height:20px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* OUTPUT */
+  #output { width:100%; max-width:1200px; margin:0 auto; padding:2rem; display:none; }
+  #output.visible { display:block; }
+
+  /* TOP NAV */
+  .top-nav {
+    position:sticky; top:0; z-index:100;
+    background:#080c14ee; backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--border);
+    padding:.75rem 2rem;
+    display:flex; align-items:center; justify-content:space-between;
+    flex-wrap:wrap; gap:.5rem;
+  }
+  .nav-brand { font-family:var(--font-display); font-weight:800; color:var(--accent); font-size:1.1rem; }
+  .nav-links { display:flex; gap:.5rem; flex-wrap:wrap; }
+  .nav-link {
+    font-size:.75rem; padding:.35rem .75rem; border-radius:8px;
+    background:var(--card); border:1px solid var(--border);
+    color:var(--muted); cursor:pointer; text-decoration:none;
+    transition:all .2s;
+  }
+  .nav-link:hover { color:var(--accent); border-color:var(--accent); }
+  .btn-new {
+    font-size:.8rem; padding:.4rem 1rem; border-radius:8px;
+    background:var(--accent); border:none; color:#000;
+    font-weight:700; cursor:pointer;
+  }
+
+  /* TOPIC HEADER */
+  .topic-header {
+    background:linear-gradient(135deg,#0d1f35,#0d1420);
+    border:1px solid var(--border); border-radius:24px;
+    padding:2.5rem; margin-bottom:2rem;
+    position:relative; overflow:hidden;
+  }
+  .topic-header::after {
+    content:''; position:absolute; top:-50%; right:-10%;
+    width:400px; height:400px;
+    background:radial-gradient(circle,#0ea5e915,transparent 70%);
+    pointer-events:none;
+  }
+  .gs-badge {
+    display:inline-block; padding:.35rem .9rem; border-radius:8px;
+    font-size:.75rem; font-weight:700; letter-spacing:.05em; margin:.25rem;
+  }
+  .gs-badge.gs2 { background:#10b98115; border:1px solid #10b98130; color:#10b981; }
+  .gs-badge.gs1 { background:#f59e0b15; border:1px solid #f59e0b30; color:#f59e0b; }
+  .gs-badge.gs3 { background:#6366f115; border:1px solid #6366f130; color:#a78bfa; }
+  .gs-badge.gs4 { background:#f43f5e15; border:1px solid #f43f5e30; color:#f43f5e; }
+  .topic-title { font-family:var(--font-display); font-size:clamp(1.8rem,4vw,3rem); font-weight:800; line-height:1.1; margin:.75rem 0; }
+  .topic-why { color:var(--muted); font-size:.95rem; line-height:1.7; margin-top:.75rem; border-left:3px solid var(--accent); padding-left:1rem; }
+
+  /* MODULE CARDS */
+  .module { background:var(--card); border:1px solid var(--border); border-radius:20px; padding:2rem; margin-bottom:1.5rem; }
+  .module-header {
+    display:flex; align-items:center; gap:.75rem;
+    margin-bottom:1.5rem; padding-bottom:1rem;
+    border-bottom:1px solid var(--border);
+  }
+  .module-num { font-family:var(--font-display); font-size:2.5rem; font-weight:800; color:var(--border); line-height:1; }
+  .module-title { font-family:var(--font-display); font-weight:700; font-size:1.1rem; text-transform:uppercase; letter-spacing:.05em; }
+  .module-icon { font-size:1.5rem; }
+
+  /* CONTENT STYLES */
+  .tag-list { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.75rem; }
+  .tag { background:#1e2d45; border:1px solid var(--border); color:var(--muted); font-size:.75rem; padding:.3rem .7rem; border-radius:6px; }
+  .tag.highlight { background:#0ea5e915; border-color:#0ea5e930; color:var(--accent); }
+
+  .diff-badge { display:inline-block; padding:.2rem .6rem; border-radius:6px; font-size:.75rem; font-weight:600; margin-left:.5rem; }
+  .diff-easy { background:#10b98115; color:#10b981; }
+  .diff-medium { background:#f59e0b15; color:#f59e0b; }
+  .diff-hard { background:#f43f5e15; color:#f43f5e; }
+
+  .prose { color:var(--text); line-height:1.8; font-size:.95rem; }
+  .prose p { margin-bottom:1rem; }
+
+  .bullet-list { list-style:none; }
+  .bullet-list li { display:flex; gap:.75rem; margin-bottom:.75rem; font-size:.9rem; line-height:1.6; }
+  .bullet-list li::before { content:'▹'; color:var(--accent); flex-shrink:0; margin-top:.1rem; }
+
+  /* FACT TABLE */
+  .fact-table { width:100%; border-collapse:collapse; font-size:.85rem; }
+  .fact-table th { background:#0d1f35; padding:.75rem 1rem; text-align:left; font-family:var(--font-display); font-size:.75rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); border-bottom:1px solid var(--border); }
+  .fact-table td { padding:.75rem 1rem; border-bottom:1px solid #1e2d4550; vertical-align:top; line-height:1.5; }
+  .fact-table tr:hover td { background:#0ea5e905; }
+  .fact-cat { color:var(--accent); font-weight:600; font-size:.8rem; }
+  .trick-box { background:#f59e0b10; border:1px solid #f59e0b30; border-radius:12px; padding:1rem 1.25rem; margin-top:1.25rem; font-size:.9rem; }
+  .trick-label { color:var(--gold); font-weight:700; font-size:.8rem; text-transform:uppercase; letter-spacing:.08em; margin-bottom:.4rem; }
+
+  /* PYQ */
+  .pyq-item { background:#0d1420; border:1px solid var(--border); border-radius:12px; padding:1rem 1.25rem; margin-bottom:.75rem; }
+  .pyq-year { color:var(--accent); font-weight:700; font-size:.8rem; }
+  .pyq-q { font-size:.9rem; margin:.4rem 0; line-height:1.5; }
+  .pyq-ans { color:var(--green); font-size:.8rem; font-weight:600; }
+  .pyq-why { color:var(--muted); font-size:.8rem; margin-top:.4rem; }
+
+  /* MCQ */
+  .mcq-item { background:#0d1420; border:1px solid var(--border); border-radius:14px; padding:1.25rem; margin-bottom:1rem; }
+  .mcq-q { font-size:.95rem; font-weight:500; margin-bottom:1rem; line-height:1.5; }
+  .mcq-options { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; }
+  @media(max-width:600px){ .mcq-options { grid-template-columns:1fr; } }
+  .mcq-opt {
+    background:#111827; border:1px solid var(--border); border-radius:8px;
+    padding:.6rem .9rem; font-size:.85rem; cursor:pointer;
+    transition:all .2s; text-align:left; color:var(--text);
+  }
+  .mcq-opt:hover { border-color:var(--accent); background:#0ea5e908; }
+  .mcq-opt.correct { border-color:var(--green)!important; background:#10b98115!important; color:#10b981!important; }
+  .mcq-opt.wrong { border-color:var(--rose)!important; background:#f43f5e15!important; color:#f43f5e!important; }
+  .mcq-explanation { display:none; margin-top:.75rem; background:#0ea5e908; border:1px solid #0ea5e920; border-radius:8px; padding:.75rem; font-size:.85rem; line-height:1.6; color:var(--text); }
+  .mcq-explanation.show { display:block; }
+  .mcq-source { color:var(--muted); font-size:.75rem; margin-top:.35rem; }
+
+  /* MAINS */
+  .mains-item { border:1px solid var(--border); border-radius:14px; overflow:hidden; margin-bottom:1.25rem; }
+  .mains-header { background:#0d1f35; padding:1rem 1.25rem; display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap; }
+  .mains-q { font-size:.95rem; font-weight:600; line-height:1.5; flex:1; }
+  .mains-paper { background:#6366f120; border:1px solid #6366f130; color:#a78bfa; font-size:.75rem; font-weight:700; padding:.3rem .7rem; border-radius:6px; white-space:nowrap; }
+  .mains-body { padding:1.25rem; }
+  .framework-section { margin-bottom:1rem; }
+  .framework-label { font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; margin-bottom:.4rem; }
+  .framework-label.intro { color:var(--accent); }
+  .framework-label.body { color:var(--gold); }
+  .framework-label.conc { color:var(--green); }
+  .framework-label.boost { color:var(--purple); }
+  .framework-content { font-size:.875rem; color:var(--text); line-height:1.7; background:#0d1420; border-radius:8px; padding:.75rem 1rem; }
+
+  /* PROS CONS */
+  .pros-cons-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; }
+  @media(max-width:640px){ .pros-cons-grid { grid-template-columns:1fr; } }
+  .pros-col { background:#10b98108; border:1px solid #10b98120; border-radius:14px; padding:1.25rem; }
+  .cons-col { background:#f43f5e08; border:1px solid #f43f5e20; border-radius:14px; padding:1.25rem; }
+  .col-title { font-family:var(--font-display); font-weight:700; font-size:1rem; margin-bottom:1rem; display:flex; align-items:center; gap:.5rem; }
+  .pros-col .col-title { color:#10b981; }
+  .cons-col .col-title { color:#f43f5e; }
+  .pros-cons-item { display:flex; gap:.75rem; margin-bottom:.75rem; font-size:.875rem; line-height:1.6; }
+  .pros-cons-item::before { flex-shrink:0; }
+  .pros-col .pros-cons-item::before { content:'✓'; color:#10b981; font-weight:700; }
+  .cons-col .pros-cons-item::before { content:'✗'; color:#f43f5e; font-weight:700; }
+  .balanced-box { background:#6366f110; border:1px solid #6366f120; border-radius:12px; padding:1rem 1.25rem; margin-top:1.25rem; font-size:.9rem; line-height:1.7; color:var(--text); }
+  .balanced-label { color:var(--purple); font-weight:700; font-size:.75rem; text-transform:uppercase; letter-spacing:.08em; margin-bottom:.4rem; }
+
+  /* VALUE ADDITION */
+  .val-section { margin-bottom:1.5rem; }
+  .val-section-title { font-family:var(--font-display); font-size:.8rem; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); margin-bottom:.75rem; padding-bottom:.4rem; border-bottom:1px solid var(--border); }
+  .val-item { background:#0d1420; border:1px solid var(--border); border-radius:10px; padding:.75rem 1rem; margin-bottom:.5rem; font-size:.875rem; line-height:1.6; }
+  .val-name { color:var(--accent); font-weight:600; }
+  .sdg-pills { display:flex; flex-wrap:wrap; gap:.5rem; }
+  .sdg-pill { background:#10b98115; border:1px solid #10b98130; color:#10b981; font-size:.75rem; padding:.3rem .7rem; border-radius:6px; }
+
+  /* DIAGRAMS */
+  .diagram-item { background:#0d1420; border:1px solid var(--border); border-left:3px solid var(--purple); border-radius:12px; padding:1.25rem; margin-bottom:1rem; }
+  .diagram-type { display:inline-block; background:#a78bfa15; border:1px solid #a78bfa30; color:var(--purple); font-size:.75rem; font-weight:700; padding:.25rem .65rem; border-radius:6px; margin-bottom:.75rem; }
+  .diagram-title { font-weight:700; font-size:1rem; margin-bottom:.75rem; }
+  .diagram-nodes { font-size:.875rem; line-height:1.8; color:var(--muted); }
+  .diagram-nodes span { color:var(--text); }
+
+  /* FLASHCARDS */
+  .flashcards-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:1rem; }
+  .flashcard { perspective:1000px; height:180px; cursor:pointer; }
+  .flashcard-inner { position:relative; width:100%; height:100%; transition:transform .5s; transform-style:preserve-3d; }
+  .flashcard:hover .flashcard-inner { transform:rotateY(180deg); }
+  .flashcard.flipped .flashcard-inner { transform:rotateY(180deg); }
+  .card-face { position:absolute; inset:0; border-radius:14px; padding:1.25rem; backface-visibility:hidden; display:flex; flex-direction:column; justify-content:space-between; }
+  .card-front { background:var(--card); border:1px solid var(--border); }
+  .card-back { background:#0d1f35; border:1px solid #0ea5e930; transform:rotateY(180deg); }
+  .card-cat { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--accent); margin-bottom:.5rem; }
+  .card-q { font-size:.9rem; font-weight:500; line-height:1.4; color:var(--text); }
+  .card-a { font-size:.85rem; line-height:1.5; color:#7dd3fc; }
+  .card-hint { font-size:.7rem; color:var(--muted); text-align:right; }
+  .diff-stars { font-size:.8rem; }
+
+  /* REVISION BOX */
+  .revision-box {
+    background:linear-gradient(135deg,#92400e,#451a03);
+    border:1px solid #d97706; border-radius:20px; padding:2rem; overflow:hidden; position:relative;
+  }
+  .revision-box::before {
+    content:''; position:absolute; top:-50%; right:-5%;
+    width:300px; height:300px;
+    background:radial-gradient(circle,#fbbf2420,transparent 70%);
+    pointer-events:none;
+  }
+  .revision-box h3 { font-family:var(--font-display); font-size:1.2rem; font-weight:800; color:#fde68a; margin-bottom:1.25rem; display:flex; align-items:center; gap:.5rem; }
+  .revision-points { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:1rem; }
+  .rev-point { display:flex; gap:.75rem; align-items:flex-start; }
+  .rev-num { font-family:var(--font-display); font-size:1.5rem; font-weight:800; color:#92400e; line-height:1; flex-shrink:0; }
+  .rev-text { font-size:.875rem; color:#fde68a; line-height:1.5; }
+
+  /* TAGS FOOTER */
+  .tags-footer { display:flex; flex-wrap:wrap; gap:.5rem; padding:1.5rem; background:var(--card); border:1px solid var(--border); border-radius:14px; margin-bottom:2rem; }
+  .tag-footer-item { background:#1e2d45; border:1px solid var(--border); color:var(--muted); font-size:.75rem; padding:.35rem .75rem; border-radius:6px; }
+  .tag-footer-item.primary { background:#0ea5e915; border-color:#0ea5e930; color:var(--accent); font-weight:600; }
+
+  /* LATEST BILLS MODULE */
+  .bills-module { background:linear-gradient(135deg,#16a34a08,#0d1420); border:1px solid #16a34a40; border-radius:16px; padding:1.25rem; margin-bottom:1.5rem; }
+  .bill-priority-badge { font-size:.8rem; color:#4ade80; background:#16a34a15; border:1px solid #16a34a30; border-radius:8px; padding:.5rem 1rem; margin-bottom:1rem; }
+  .bill-card { background:#0d1420; border:1px solid var(--border); border-left:4px solid #4ade80; border-radius:10px; padding:.85rem 1rem; margin-bottom:.75rem; }
+  .bill-label { color:#4ade80; font-weight:700; font-size:.75rem; text-transform:uppercase; margin-bottom:.3rem; }
+  .bill-text { font-size:.88rem; line-height:1.7; }
+  .dev-card { background:#0d1420; border:1px solid var(--border); border-left:4px solid var(--accent); border-radius:10px; padding:.85rem 1rem; margin-bottom:.75rem; }
+  .dev-label { color:var(--accent); font-weight:700; font-size:.75rem; text-transform:uppercase; margin-bottom:.3rem; }
+
+  /* ACCURACY AUDIT */
+  .audit-module { background:linear-gradient(135deg,#f59e0b06,#0d1420); border:1px solid #f59e0b40; border-radius:16px; padding:1.25rem; margin-bottom:1.5rem; }
+  .audit-subtitle { font-size:.82rem; color:#94a3b8; margin-bottom:1rem; line-height:1.6; }
+  .audit-grid { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+  .audit-card { background:#0d1420; border:1px solid var(--border); border-radius:10px; padding:.85rem 1rem; }
+  .audit-card-title { font-weight:700; font-size:.78rem; margin-bottom:.6rem; }
+  .audit-row { font-size:.8rem; line-height:1.6; padding:.3rem 0; border-bottom:1px solid var(--border); color:#94a3b8; }
+  .audit-source-note { font-size:.72rem; color:var(--muted); margin-top:.4rem; }
+  @media(max-width:600px){.audit-grid{grid-template-columns:1fr;}}
+
+  /* MOBILE BOTTOM NAV */
+  .bottom-nav {
+    display:none; position:fixed; bottom:0; left:0; right:0; z-index:200;
+    background:#080c14f0; backdrop-filter:blur(12px);
+    border-top:1px solid var(--border);
+    padding:.5rem 1rem; gap:.25rem;
+    overflow-x:auto;
+  }
+  .bottom-nav.visible { display:flex; }
+  .bottom-nav a { font-size:.7rem; color:var(--muted); text-decoration:none; padding:.4rem .6rem; border-radius:6px; white-space:nowrap; flex-shrink:0; }
+  .bottom-nav a:hover { color:var(--accent); background:#0ea5e910; }
+
+  /* ERROR */
+  .error-box { background:#f43f5e10; border:1px solid #f43f5e30; border-radius:12px; padding:1.25rem; color:#f43f5e; font-size:.9rem; margin-top:1rem; display:none; }
+  .error-box.show { display:block; }
+
+  /* LOADING SHIMMER */
+  .shimmer { background:linear-gradient(90deg,var(--card) 25%,#1e2d45 50%,var(--card) 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:8px; height:1rem; margin:.5rem 0; }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+  /* RESPONSIVE */
+  @media(max-width:768px){
+    .top-nav { padding:.5rem 1rem; }
+    #output { padding:1rem; }
+    .module { padding:1.25rem; }
+    .bottom-nav { display:flex; }
+    #output { padding-bottom:5rem; }
+  }
+
+  /* PRINT FRIENDLY */
+  @media print {
+    .top-nav, .bottom-nav, .btn-new { display:none!important; }
+    .module { break-inside:avoid; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO SCREEN -->
+<div class="hero" id="heroScreen">
+  <div class="hero-badge"><div class="dot"></div> AI-Powered UPSC Preparation</div>
+  <h1>UPSC <span>Guru AI</span></h1>
+  <p>Convert any current affairs topic into complete exam-ready notes with MCQs, Mains frameworks, flashcards and more.</p>
+  <div class="input-card">
+    <div style="background:linear-gradient(135deg,#6366f115,#0ea5e915);border:1px solid #6366f140;border-radius:12px;padding:.9rem 1.1rem;margin-bottom:.85rem;display:flex;align-items:center;gap:.75rem;">
+      <div style="font-size:1.4rem;">🤖</div>
+      <div>
+        <div style="font-weight:700;font-size:.88rem;color:#a78bfa;">Powered by Gemini 2.0 Flash</div>
+        <div style="font-size:.76rem;color:var(--muted);margin-top:.15rem;">Get your free API key at aistudio.google.com · Works directly in browser · No server needed</div>
+      </div>
+      <div style="margin-left:auto;background:#10b98120;border:1px solid #10b98140;color:#10b981;font-size:.7rem;font-weight:700;padding:.25rem .6rem;border-radius:20px;">✓ READY</div>
+    </div>
+
+    <label class="input-label">Enter topic, paste news article, or upload image</label>
+    <textarea class="input-field" id="topicInput" placeholder="e.g. Uniform Civil Code, Digital Personal Data Protection Act, India's Arctic Policy..." rows="3"></textarea>
+    
+    <!-- Image Upload -->
+    <div style="margin-top:.75rem;">
+      <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
+      <button onclick="document.getElementById('imageInput').click()" style="background:#0d1420;border:1px dashed var(--border);color:var(--muted);font-size:.8rem;padding:.6rem 1rem;border-radius:10px;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:.5rem;transition:all .2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+        📷 Upload News Article Image (optional)
+      </button>
+      <div id="imagePreviewBox" style="display:none;margin-top:.5rem;position:relative;">
+        <img id="imagePreview" style="width:100%;border-radius:8px;border:1px solid var(--border);max-height:180px;object-fit:cover;" />
+        <button onclick="removeImage()" style="position:absolute;top:.4rem;right:.4rem;background:#f43f5e;border:none;color:#fff;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:.8rem;display:flex;align-items:center;justify-content:center;">✕</button>
+        <div style="font-size:.75rem;color:#10b981;margin-top:.3rem;">✓ Image loaded — AI will extract and analyze topic from this image</div>
+      </div>
+    </div>
+
+    <div style="margin-top:.75rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
+      <span style="font-size:.75rem;color:var(--muted)">Quick topics:</span>
+      <button onclick="setTopic('Uniform Civil Code')" style="background:var(--surface);border:1px solid var(--border);color:var(--muted);font-size:.75rem;padding:.25rem .6rem;border-radius:6px;cursor:pointer;">UCC</button>
+      <button onclick="setTopic('One Nation One Election')" style="background:var(--surface);border:1px solid var(--border);color:var(--muted);font-size:.75rem;padding:.25rem .6rem;border-radius:6px;cursor:pointer;">ONOE</button>
+      <button onclick="setTopic('India Arctic Policy')" style="background:var(--surface);border:1px solid var(--border);color:var(--muted);font-size:.75rem;padding:.25rem .6rem;border-radius:6px;cursor:pointer;">Arctic Policy</button>
+      <button onclick="setTopic('PM POSHAN Scheme')" style="background:var(--surface);border:1px solid var(--border);color:var(--muted);font-size:.75rem;padding:.25rem .6rem;border-radius:6px;cursor:pointer;">PM POSHAN</button>
+    </div>
+    <button class="btn-analyze" id="analyzeBtn" onclick="startAnalysis()">
+      <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      Analyze Topic
+    </button>
+    <div class="error-box" id="errorBox"></div>
+  </div>
+
+  <div class="progress-section" id="progressSection">
+    <div class="progress-step" id="step1">
+      <div class="step-icon" id="step1Icon">📋</div>
+      <div><div style="font-weight:600;font-size:.9rem;">Step 1 — Core Analysis</div><div style="font-size:.8rem;color:var(--muted);">Topic definition, background & UPSC summary</div></div>
+    </div>
+    <div class="progress-step" id="step2">
+      <div class="step-icon" id="step2Icon">🔑</div>
+      <div><div style="font-weight:600;font-size:.9rem;">Step 2 — Fact Bank & PYQ Patterns</div><div style="font-size:.8rem;color:var(--muted);">Key facts, dates, acts, committees & exam trends</div></div>
+    </div>
+    <div class="progress-step" id="step3">
+      <div class="step-icon" id="step3Icon">🧩</div>
+      <div><div style="font-weight:600;font-size:.9rem;">Step 3 — Prelims Practice MCQs</div><div style="font-size:.8rem;color:var(--muted);">5 UPSC-style MCQs with detailed explanations</div></div>
+    </div>
+    <div class="progress-step" id="step4">
+      <div class="step-icon" id="step4Icon">✍️</div>
+      <div><div style="font-weight:600;font-size:.9rem;">Step 4 — Mains Answer Frameworks</div><div style="font-size:.8rem;color:var(--muted);">3 Mains questions with complete answer structures</div></div>
+    </div>
+    <div class="progress-step" id="step5">
+      <div class="step-icon" id="step5Icon">⚖️</div>
+      <div><div style="font-weight:600;font-size:.9rem;">Step 5 — Critical Analysis</div><div style="font-size:.8rem;color:var(--muted);">Pros/cons, reports, schemes & constitutional connect</div></div>
+    </div>
+    <div class="progress-step" id="step6">
+      <div class="step-icon" id="step6Icon">🃏</div>
+      <div><div style="font-weight:600;font-size:.9rem;">Step 6 — Flashcards & Revision</div><div style="font-size:.8rem;color:var(--muted);">12 flashcards, diagrams & last-minute revision points</div></div>
+    </div>
+    <div class="progress-step" id="step7">
+      <div class="step-icon" id="step7Icon">✨</div>
+      <div><div style="font-weight:600;font-size:.9rem;">Step 7 — Building Output</div><div style="font-size:.8rem;color:var(--muted);">Assembling your complete study module</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- OUTPUT SCREEN -->
+<div id="output">
+  <div class="top-nav">
+    <div class="nav-brand">⚡ UPSC Guru AI</div>
+    <nav class="nav-links">
+      <a class="nav-link" href="#module1">Topic</a>
+      <a class="nav-link" href="#module4">Facts</a>
+      <a class="nav-link" href="#module5">Pattern</a>
+      <a class="nav-link" href="#module6">MCQs</a>
+      <a class="nav-link" href="#module7">Mains</a>
+      <a class="nav-link" href="#module8">Analysis</a>
+      <a class="nav-link" href="#module11">Flashcards</a>
+      <a class="nav-link" href="#module12">Revision</a>
+      <a class="nav-link" href="#module13" style="color:#4ade80;">📜 Bills</a>
+      <a class="nav-link" href="#module14" style="color:#f59e0b;">🔍 Audit</a>
+    </nav>
+    <button class="btn-download" onclick="downloadNotes()" id="downloadBtn" style="font-size:.8rem;padding:.4rem 1rem;border-radius:8px;background:#10b981;border:none;color:#000;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:.4rem;">⬇️ Download Notes</button>
+    <button class="btn-new" onclick="resetApp()">+ New Topic</button>
+  </div>
+  <div style="padding:1.5rem 2rem;max-width:1200px;margin:0 auto;" id="outputContent"></div>
+</div>
+
+<nav class="bottom-nav" id="bottomNav">
+  <a href="#module1">📌 Topic</a>
+  <a href="#module4">🔑 Facts</a>
+  <a href="#module5">📊 Pattern</a>
+  <a href="#module6">🧩 MCQs</a>
+  <a href="#module7">✍️ Mains</a>
+  <a href="#module8">⚖️ Analysis</a>
+  <a href="#module11">🃏 Cards</a>
+  <a href="#module12">⏱️ Revision</a>
+  <a href="#module13" style="color:#4ade80;">📜 Bills</a>
+  <a href="#module14" style="color:#f59e0b;">🔍 Audit</a>
+</nav>
+
+<script>
+const GEMINI_API_KEY = 'AIzaSyDPBj2OMT8U1Rpw_7v6mSLyPv-zNKbTTWo';
+let analysisData = {};
+
+// ─── API CALLER ───────────────────────────────────────────────────────────────
+async function callAPI(prompt, maxTokens = 8192) {
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: {
+          parts: [{ text: `You are a senior UPSC expert and fact-checker with 25 years of experience training IAS toppers. Respond ONLY with valid JSON — no markdown fences, no commentary. Always close all JSON brackets.
+
+STRICT ACCURACY RULES — VIOLATIONS WILL HARM STUDENTS:
+1. CONSTITUTIONAL ARTICLES: Only cite articles that genuinely exist and apply. Double-check every article number. Article 83=Lok Sabha duration, 85=dissolution, 172=State Assembly duration, 174=State dissolution, 356=President's Rule, 368=Amendment procedure.
+2. SC JUDGMENTS: Only name cases you are 100% certain about with correct year. Key verified cases: Kesavananda Bharati 1973 (Basic Structure), S.R. Bommai 1994 (Art.356), Kihoto Hollohan 1992 (anti-defection), Minerva Mills 1980. Never invent case names.
+3. COMMITTEES: Only name committees that actually existed. Verify chairperson names. Key verified: Law Commission 170th Report 1999, Kovind HLC 2023, NITI Aayog Working Paper 2017 (NOT 2015).
+4. INTERNATIONAL COMPARISONS: Only cite countries you are 100% certain about. Verified: South Africa (simultaneous national+provincial elections), Sweden (simultaneous national+regional+local every 4 years), Indonesia (simultaneous national elections 2019). NEVER cite Germany for simultaneous elections — Germany holds Bundestag and Landtag elections independently.
+5. LATEST DEVELOPMENTS: Always include the most recent Constitutional Amendment Bills introduced in Parliament (2023-2025). For One Nation One Election: Constitution (129th Amendment) Bill 2024 introduced in December 2024.
+6. STATISTICS: Use verified approximate figures. Never invent precise statistics. Use ranges or 'approximately'.
+7. CONSTRUCTIVE VOTE OF NO-CONFIDENCE: Where relevant (especially for ONOE, parliamentary democracy topics), always mention this mechanism recommended by the Kovind Committee — a government can only be removed if a successor is simultaneously elected, as in Germany's Bundestag.` }]
+        },
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          maxOutputTokens: maxTokens,
+          thinkingConfig: { thinkingBudget: 0 }
+        }
+      })
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err.error && err.error.message) || 'API error ' + res.status);
+  }
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  return parseJSON(text.replace(/```json|```/g, '').trim());
+}
+
+function parseJSON(raw) {
+  try { return JSON.parse(raw); } catch(e) {}
+  try {
+    const s = raw.indexOf('{'), e = raw.lastIndexOf('}');
+    if (s !== -1 && e !== -1) return JSON.parse(raw.slice(s, e + 1));
+  } catch(e) {}
+  try {
+    let f = raw;
+    const lc = f.lastIndexOf(','), lb = f.lastIndexOf('}'), la = f.lastIndexOf(']');
+    if (lc > Math.max(lb, la)) f = f.slice(0, lc);
+    const opens = (f.match(/\[/g)||[]).length - (f.match(/\]/g)||[]).length;
+    const objs  = (f.match(/\{/g)||[]).length - (f.match(/\}/g)||[]).length;
+    for (let i = 0; i < opens; i++) f += ']';
+    for (let i = 0; i < objs;  i++) f += '}';
+    return JSON.parse(f);
+  } catch(e) {
+    throw new Error('JSON parse failed — response may have been cut off.');
+  }
+}
+
+// ─── PROMPTS (lean — no giant example templates) ──────────────────────────────
+const PROMPTS = {
+
+  step1: (topic, imageCtx) => `Topic for UPSC analysis: ${topic}${imageCtx ? '\n\nImage context: ' + imageCtx : ''}
+
+BEFORE RESPONDING — SELF-CHECK:
+- Did I include the most recent Constitutional Amendment Bill/Act (2023-2025) if one exists for this topic?
+- Did I verify every Article number I am citing?
+- Did I avoid citing Germany for simultaneous elections?
+- Did I verify every SC case name and year?
+- Is CURRENT STATUS truly updated to 2024-25?
+
+Return ONLY this JSON (no extra text):
+{
+  "title": "exact UPSC topic title",
+  "definition": "precise 2-3 line technical/legal definition using correct legal terminology",
+  "why_in_news": "4-5 lines: specific recent trigger (with month/year if known), key actors, policy developments, why UPSC will ask this",
+  "primary_gs": "GS1 or GS2 or GS3 or GS4",
+  "secondary_gs": "secondary paper or null",
+  "tags": ["tag1","tag2","tag3","tag4","tag5"],
+  "prelims_difficulty": "Easy or Medium or Hard",
+  "mains_difficulty": "Easy or Medium or Hard",
+  "historical_background": "500+ word verified factual narrative structured as: (1) Pre-independence/colonial origins with verified years (2) Constituent Assembly debates — cite actual participants if certain (3) Post-independence chronological milestones with verified years (4) Key Acts of Parliament with correct names and years (5) Landmark SC judgments — ONLY cases you are 100% certain of with year and key holding (6) Committee reports with correct names, years, chairpersons (7) Latest 2023-25 developments including any Constitutional Amendment Bills introduced in Parliament. CRITICAL: Do NOT fabricate any committee name, case name, report number, or date. If uncertain, describe generally.",
+  "upsc_summary": [
+    "CORE ISSUE: substantive 3-4 sentence explanation of the fundamental problem/concept with verified context",
+    "STAKEHOLDERS: all key actors with their specific verified roles and interests — Central Govt, State Govts, ECI, civil society, affected groups",
+    "CURRENT STATUS 2024-25: latest verified developments — include any bills/acts passed or introduced in 2023-25, committee reports, court orders",
+    "INDIA POLICY: verified government schemes/missions/bills with correct years and ministries — include latest constitutional amendment bills if any",
+    "CONSTITUTIONAL FRAMEWORK: exact verified Articles only — cite Part, Article number, and provision. Include FRs, DPSPs, relevant Schedules, and key Amendments",
+    "INTERNATIONAL DIMENSION: verified treaties/conventions with India's actual ratification status — only countries you are certain about for comparisons",
+    "ECONOMIC IMPACT: substantive analysis with approximate sourced data — GDP impact, fiscal cost, sectoral effects",
+    "SOCIAL IMPACT: evidence-based analysis of impact on marginalized groups, gender, regional disparities with data where possible",
+    "CHALLENGES: 5 specific well-articulated challenges — constitutional, federal, logistical, political, social",
+    "WAY FORWARD: 4 concrete policy recommendations grounded in expert consensus, constitutional vision, and international best practices"
+  ],
+  "key_terms": [
+    {"term": "most important technical term", "meaning": "precise UPSC-context definition with legal/constitutional basis"},
+    {"term": "term2", "meaning": "definition with context"},
+    {"term": "term3", "meaning": "definition"},
+    {"term": "term4", "meaning": "definition"},
+    {"term": "term5", "meaning": "definition"},
+    {"term": "term6", "meaning": "definition"}
+  ]
+}`,
+
+  step2: (topic) => `UPSC topic: ${topic}
+
+ACCURACY RULES FOR FACT BANK:
+- Include the most recent Constitutional Amendment Bill introduced in Parliament (2023-2025) if relevant — this is a HIGH-PRIORITY fact
+- Include minimum 2 verified SC judgments that genuinely apply to this topic
+- NITI Aayog Working Paper on simultaneous elections was published in 2017 NOT 2015
+- For international comparisons: NEVER cite Germany for simultaneous elections. Verified: South Africa, Sweden, Indonesia (2019 first simultaneous election), Belgium
+- All committee names, chair names, and years must be verified — skip rather than guess
+- Statistics: use approximate figures with source, never invent precise numbers
+
+Return ONLY this JSON (15 fact bank entries minimum):
+{
+  "fact_bank": [
+    {"category": "Important Date", "fact": "year: verified event with full context", "source": "verified source"},
+    {"category": "Important Date", "fact": "year: verified event", "source": "source"},
+    {"category": "Constitutional Article", "fact": "Article X (Part Y): exact provision — UPSC relevance explained", "source": "Constitution of India"},
+    {"category": "Constitutional Article", "fact": "Article X: provision and relevance", "source": "Constitution of India"},
+    {"category": "Constitutional Amendment Bill", "fact": "most recent bill/act related to this topic introduced in 2023-25 — name, year, key provisions", "source": "Parliament of India"},
+    {"category": "Act/Law", "fact": "Act Name Year: key sections and provisions relevant to topic", "source": "Parliament"},
+    {"category": "Act/Law", "fact": "Act Name Year: provisions", "source": "Parliament"},
+    {"category": "Treaty/Convention", "fact": "Treaty name year: India's exact ratification status and key obligations", "source": "UN/intl body"},
+    {"category": "Organization", "fact": "Org name: HQ city, founded year, India's role/membership", "source": "org"},
+    {"category": "Report/Index", "fact": "verified Report name year: key India-specific finding with data", "source": "publisher"},
+    {"category": "Committee", "fact": "REAL verified committee name year: Chair full name — specific verified recommendation", "source": "GoI"},
+    {"category": "Committee", "fact": "second verified committee: Chair — recommendation", "source": "GoI"},
+    {"category": "Key Statistic", "fact": "approximate verified statistic with context and year — use 'approximately' if not exact", "source": "verified source"},
+    {"category": "SC Judgment", "fact": "Case Name year: exact ruling — specific impact on this topic", "source": "Supreme Court"},
+    {"category": "SC Judgment", "fact": "Second verified SC case year: ruling — impact", "source": "Supreme Court"},
+    {"category": "Scheme/Mission", "fact": "Scheme name year: Ministry. Specific objective and target", "source": "GoI"},
+    {"category": "Recent Development", "fact": "most recent 2023-25 development — bill introduced/passed, committee formed, court order, policy change", "source": "source"}
+  ],
+  "trick_to_remember": "memorable mnemonic or acronym that covers 4-5 key facts with explanation of each letter/word",
+  "pyq_themes": {
+    "prelims_pattern": "how UPSC Prelims has historically tested this topic — specific question types (statement-based/match/assertion-reason), typical difficulty, which sub-topics appear most (3 sentences)",
+    "mains_pattern": "how Mains has asked this — specific GS papers, typical analytical angles, marks range, word limit pattern (3 sentences)",
+    "recent_trend": "trend 2018-2024: frequency of appearance, new angles emerging post-2020, likely direction (2 sentences)",
+    "expected_questions": [
+      "most likely Prelims question theme for upcoming exam",
+      "most likely Mains GS2 question theme",
+      "most likely Mains GS3/GS4 question theme"
+    ]
+  }
+}`,
+
+  step3: (topic) => `UPSC topic: ${topic}
+
+Generate 5 high-quality UPSC-style Prelims practice MCQs.
+
+MCQ QUALITY RULES:
+1. Every option (a, b, c, d) MUST have non-empty text — never leave an option blank
+2. The "answer" field MUST match the correct option key (a/b/c/d)
+3. Statements must be factually verifiable — mix true and false statements carefully
+4. Explanation must cite specific verified facts for each statement
+5. Include the latest 2023-25 developments in at least one question
+6. For statement-based questions: ensure options cover "1 only", "2 only", "1 and 2", "all three" type combinations
+7. SELF-CHECK before finalizing: Is every option text filled? Is the correct answer truly correct?
+
+Return ONLY this JSON:
+{
+  "prelims": [
+    {
+      "type": "Statement Based",
+      "question": "Consider the following statements about [specific aspect of topic]:\\n1. [factually accurate or inaccurate verifiable statement]\\n2. [factually accurate or inaccurate verifiable statement]\\n3. [factually accurate or inaccurate verifiable statement]\\nWhich of the above statements is/are correct?",
+      "options": {"a": "1 only", "b": "1 and 2 only", "c": "2 and 3 only", "d": "1, 2 and 3"},
+      "answer": "b",
+      "explanation": "Statement 1 is correct because: [specific verified fact]. Statement 2 is correct because: [specific verified fact]. Statement 3 is incorrect because: [correct fact with source].",
+      "topic_tested": "specific sub-concept being tested"
+    },
+    {
+      "type": "Match the Following",
+      "question": "Match List-I (item) with List-II (description):\\nList-I: A. [item1]  B. [item2]  C. [item3]  D. [item4]\\nList-II: 1. [description1]  2. [description2]  3. [description3]  4. [description4]\\nSelect the correct answer using the code below:",
+      "options": {"a": "A-1, B-2, C-3, D-4", "b": "A-2, B-1, C-4, D-3", "c": "A-3, B-4, C-1, D-2", "d": "A-4, B-3, C-2, D-1"},
+      "answer": "b",
+      "explanation": "A matches 2 because: [reason]. B matches 1 because: [reason]. C matches 4 because: [reason]. D matches 3 because: [reason].",
+      "topic_tested": "specific sub-concept"
+    },
+    {
+      "type": "Assertion-Reason",
+      "question": "Assertion (A): [precise factual assertion about topic]\\nReason (R): [statement that may or may not correctly explain A]\\nSelect the correct answer:",
+      "options": {"a": "Both A and R are true, and R is the correct explanation of A", "b": "Both A and R are true, but R is NOT the correct explanation of A", "c": "A is true but R is false", "d": "A is false but R is true"},
+      "answer": "a",
+      "explanation": "A is correct because: [specific verified fact]. R is correct because: [specific verified fact]. R explains A because: [logical connection].",
+      "topic_tested": "specific concept"
+    },
+    {
+      "type": "Direct Factual",
+      "question": "specific factual question about a recent development, committee, or constitutional provision related to topic",
+      "options": {"a": "wrong option with plausible distractor", "b": "wrong option with plausible distractor", "c": "CORRECT answer", "d": "wrong option with plausible distractor"},
+      "answer": "c",
+      "explanation": "Option (c) is correct because: [specific verified fact]. Option (a) is wrong because: [reason]. Option (b) is wrong because: [reason]. Option (d) is wrong because: [reason].",
+      "topic_tested": "specific concept"
+    },
+    {
+      "type": "Incorrect Match",
+      "question": "Which of the following is NOT correctly matched?",
+      "options": {"a": "correctly matched pair 1", "b": "correctly matched pair 2", "c": "INCORRECTLY matched pair — this is the answer", "d": "correctly matched pair 4"},
+      "answer": "c",
+      "explanation": "Option (c) is incorrectly matched because: [correct factual information]. The correct match for [item] is [correct match]. All other options are correctly matched.",
+      "topic_tested": "specific concept"
+    }
+  ]
+}`,
+
+  step4: (topic) => `UPSC topic: ${topic}
+
+Generate 3 comprehensive Mains answer frameworks. Each must be exam-ready with specific facts.
+
+MAINS QUALITY RULES:
+1. Introduction must include a hook from 2024-25 developments or a relevant SC judgment/committee quote
+2. Body must cite specific Article numbers, case names, committee names — only verified ones
+3. Include the most recent Constitutional Amendment Bill/Act (2023-25) in value_additions
+4. For governance/polity topics: include 'constructive vote of no-confidence' mechanism if relevant
+5. Way Forward must be concrete — not generic platitudes but specific policy recommendations
+6. model_answer_hints must list 2-3 non-negotiable facts an examiner will look for
+7. Value additions must include: at least 1 SC case + 1 Committee + 1 data point + 1 international example
+
+Return ONLY this JSON:
+{
+  "mains": [
+    {
+      "question": "250-word analytical question using UPSC command words: critically examine / discuss / analyze / comment — cover main dimensions of this topic",
+      "paper": "GS2",
+      "word_limit": "250",
+      "marks": "15",
+      "approach_note": "Tests which dimension (constitutional/governance/rights/federal). Use dialectical approach: present multiple perspectives before concluding.",
+      "introduction": "Hook: cite a specific 2024-25 development OR a committee finding → define topic in 1 sentence → state its significance → frame the analytical direction. (3-4 lines)",
+      "body_structure": [
+        {"heading": "Background & Constitutional Basis", "points": [
+          "cite exact Constitutional Article with part number and provision",
+          "key historical milestone with verified year",
+          "relevant legislation with year and key provisions"
+        ]},
+        {"heading": "Current Significance / Why It Matters", "points": [
+          "specific 2024-25 development — bill introduced/committee report/court order",
+          "government initiative with scheme name, year, ministry",
+          "specific international comparison — verified country with correct practice"
+        ]},
+        {"heading": "Key Challenges / Concerns", "points": [
+          "challenge 1: constitutional/legal tension with specific article",
+          "challenge 2: federal/institutional concern with evidence",
+          "challenge 3: implementation/logistical challenge with data",
+          "challenge 4: political economy angle"
+        ]},
+        {"heading": "Way Forward", "points": [
+          "specific policy recommendation grounded in committee report",
+          "institutional reform with reference to best practice",
+          "constitutional safeguard or amendment required",
+          "short-term and long-term measures"
+        ]}
+      ],
+      "conclusion": "Synthesize the tension → cite expert/committee recommendation → connect to Art.21/DPSPs/SDG → forward-looking vision for India. (3-4 lines)",
+      "value_additions": "SC case name year: holding | Committee name year: specific recommendation | Constitutional Amendment Bill year if any | Key statistic with source | International example with specific country",
+      "model_answer_hints": "MUST mention: [fact1 — non-negotiable], [fact2 — non-negotiable]. Use UPSC phrases: [phrase1], [phrase2], [phrase3]. AVOID: [common mistake aspirants make on this topic]."
+    },
+    {
+      "question": "150-word focused question testing a specific dimension — GS2 polity/governance angle",
+      "paper": "GS2",
+      "word_limit": "150",
+      "marks": "10",
+      "approach_note": "focused analytical approach — don't try to cover everything, pick 2-3 dimensions",
+      "introduction": "2-3 lines: immediate context → define → why this matters now",
+      "body_structure": [
+        {"heading": "Key Dimensions", "points": [
+          "point 1: most important dimension with specific data/article",
+          "point 2: second dimension with evidence",
+          "point 3: third dimension"
+        ]},
+        {"heading": "Way Forward", "points": [
+          "immediate actionable recommendation",
+          "medium-term policy reform"
+        ]}
+      ],
+      "conclusion": "2-line forward-looking statement connecting to democratic values or constitutional vision.",
+      "value_additions": "key case OR committee | key article | key statistic",
+      "model_answer_hints": "Prioritize: [top 2 points]. Must mention: [2 specific facts]. Word count discipline: spend 60% on body."
+    },
+    {
+      "question": "200-word question testing a different angle — GS3 economic/technology/environment OR GS4 ethics angle — must be different paper from Q1",
+      "paper": "GS3",
+      "word_limit": "200",
+      "marks": "15",
+      "approach_note": "different analytical lens from Q1 — economic efficiency / ethical dimensions / technology / environment",
+      "introduction": "3-line intro using a specific data point or recent development",
+      "body_structure": [
+        {"heading": "Core Analysis", "points": [
+          "primary analytical point with evidence",
+          "secondary point with data"
+        ]},
+        {"heading": "Critical Concerns", "points": [
+          "concern 1 with evidence",
+          "concern 2 with constitutional/legal basis"
+        ]},
+        {"heading": "Way Forward", "points": [
+          "specific recommendation 1",
+          "specific recommendation 2"
+        ]}
+      ],
+      "conclusion": "2-3 line conclusion connecting to constitutional vision or SDG goals.",
+      "value_additions": "data point | international comparison with verified country | committee/expert recommendation",
+      "model_answer_hints": "Must mention: [2 key facts for this angle]. Unique angle to stand out: [distinctive insight examiner will appreciate]."
+    }
+  ]
+}`,
+
+  step5: (topic) => `UPSC topic: ${topic}
+
+Return ONLY this JSON. CRITICAL RULES:
+- Pros and cons must each have SPECIFIC evidence — not generic statements
+- For international comparisons: ONLY cite South Africa, Sweden, Indonesia, Belgium for simultaneous elections. NEVER cite Germany
+- Reports/committees: only real verified ones — if uncertain, reduce the list rather than fabricate
+- Constitutional connect: cite ONLY articles you are 100% certain apply, with Part number
+- For governance/polity topics: include 'constructive vote of no-confidence' mechanism in pros or way forward if relevant
+
+{
+  "pros_label": "Arguments in Favour / Opportunities",
+  "cons_label": "Concerns / Challenges / Risks",
+  "pros": [
+    {"point": "Pro 1: constitutional/legal backing — cite specific Article + 2 sentence explanation of how it supports this"},
+    {"point": "Pro 2: international comparison — cite VERIFIED country with specific practice and year, explain what India can learn"},
+    {"point": "Pro 3: economic argument — use approximate figures with source, explain mechanism"},
+    {"point": "Pro 4: governance/administrative angle — cite committee backing if certain"},
+    {"point": "Pro 5: social equity or rights dimension — cite specific groups benefited"},
+    {"point": "Pro 6: expert/judicial backing — cite specific SC case or expert committee — ONLY if certain"}
+  ],
+  "cons": [
+    {"point": "Con 1: constitutional tension — cite specific Article and explain the conflict with evidence"},
+    {"point": "Con 2: fundamental rights or democratic concern — cite Part III Article if applicable"},
+    {"point": "Con 3: implementation challenge — cite specific logistical/institutional barrier with data"},
+    {"point": "Con 4: political economy — explain which actors are disadvantaged and why, with evidence"},
+    {"point": "Con 5: cautionary international example — cite specific verified country and what went wrong"},
+    {"point": "Con 6: federalism/institutional concern — cite specific federal provisions (7th Schedule/Article 246 if relevant)"}
+  ],
+  "balanced_perspective": "5-6 lines: acknowledge the core tension → present the middle-path from expert consensus (cite committee) → connect to India's constitutional vision (Preamble/DPSPs) → SDG connection → forward-looking statement on what conditions would make implementation feasible",
+  "reports": [
+    {"name": "verified report name with year", "by": "full publisher name", "finding": "specific India-relevant finding — only include if you are certain this report exists"},
+    {"name": "verified report 2 with year", "by": "publisher", "finding": "specific finding"},
+    {"name": "verified report 3 with year", "by": "publisher", "finding": "specific finding"}
+  ],
+  "committees": [
+    {"name": "REAL verified committee name", "year": "correct year", "chair": "verified full name — skip if uncertain", "recommendation": "specific verified recommendation — not generic"},
+    {"name": "verified committee 2", "year": "year", "chair": "chair name", "recommendation": "specific recommendation"},
+    {"name": "verified committee 3", "year": "year", "chair": "chair", "recommendation": "recommendation"}
+  ],
+  "schemes": [
+    {"name": "real verified scheme name with year", "by": "correct Ministry", "objective": "specific goal with verified target/beneficiary data"},
+    {"name": "scheme 2 with year", "by": "Ministry", "objective": "specific objective"},
+    {"name": "scheme 3 with year", "by": "Ministry", "objective": "objective"},
+    {"name": "scheme 4 with year", "by": "Ministry", "objective": "objective"}
+  ],
+  "international_frameworks": [
+    {"name": "verified convention or treaty full name", "year": "year adopted", "india_status": "Ratified/Signed/Observer — with year and any specific reservation India made"},
+    {"name": "framework 2", "year": "year", "india_status": "specific status"},
+    {"name": "framework 3", "year": "year", "india_status": "status"}
+  ],
+  "sdg_links": [
+    "SDG [number]: [full SDG name] — specific connection explaining HOW this topic relates",
+    "SDG [number]: [name] — specific connection",
+    "SDG [number]: [name] — specific connection"
+  ],
+  "constitutional_connect": "Structured analysis: (1) Fundamental Rights (Part III) — Art.[X]: [exact provision] — relevance to topic. (2) Directive Principles (Part IV) — Art.[X]: [provision] — how it guides policy. (3) Fundamental Duties (Part IVA) if applicable. (4) Key Constitutional Amendments that changed the position. (5) Seventh Schedule entries if relevant. ONLY cite articles you are 100% certain about."
+}`,
+
+  step6: (topic) => `UPSC topic: ${topic}
+
+Return ONLY this JSON with high-quality revision material:
+
+FLASHCARD RULES:
+- Each card must have SPECIFIC verified facts — not generic statements
+- SC Judgment cards must cite case with year and specific holding
+- Constitutional Provision cards must cite exact Article with Part number
+- Data Point cards must use approximate figures with source attribution
+- Current Affairs card must include 2024-25 development — especially any recent bills/acts
+- Difficulty 1=easy/definition, 2=moderate/application, 3=hard/analysis
+
+{
+  "diagrams": [
+    {"title": "descriptive flowchart title for this topic", "type": "Flowchart", "supports": "Mains Q1 Body Structure", "nodes": "Cause/Problem → Constitutional/Legal Framework → Institutional Response → Implementation Mechanism → Outcome/Impact → Way Forward", "time": "5 min"},
+    {"title": "comprehensive mind map title", "type": "Mind Map", "supports": "Holistic Revision", "nodes": "Core Topic → [Constitutional Basis: specific Arts] → [Key Cases: case names] → [Committees: names+years] → [International: verified countries] → [Challenges] → [Way Forward]", "time": "6 min"},
+    {"title": "chronological timeline title", "type": "Timeline", "supports": "Historical Background", "nodes": "Year: First event → Year: Key milestone → Year: Landmark judgment → Year: Committee report → Year: Latest bill/development 2024-25", "time": "4 min"}
+  ],
+  "flashcards": [
+    {"category": "Definition", "front": "What is [core concept of topic]? Define with constitutional/legal basis.", "back": "Precise 2-3 line definition. Constitutional basis: Article X (Part Y) — provision. Key feature: distinctive element. Established by: act/judgment/practice.", "difficulty": 1},
+    {"category": "Constitutional Provision", "front": "What does Article [X] (Part [Y]) of the Constitution say regarding [aspect of topic]?", "back": "Art.[X], Part [Y]: [exact provision]. Added/amended by: [Amendment if any]. UPSC relevance: [how examiners test this]. Related article: Art.[Z].", "difficulty": 1},
+    {"category": "Constitutional Provision", "front": "What does Article [another relevant article] provide for [another aspect]?", "back": "Art.[X], Part [Y]: [provision]. Key distinction from Art.[Z]: [difference]. UPSC tip: [what to remember].", "difficulty": 2},
+    {"category": "SC Judgment", "front": "What was held in [verified landmark SC case name, year]? How does it relate to [topic]?", "back": "[Case name] ([year]): [specific holding in 2 lines]. Impact on topic: [specific relevance]. Bench: [only if certain]. Followed in: [later case if known].", "difficulty": 3},
+    {"category": "SC Judgment", "front": "What was the significance of [second verified SC case] for [topic]?", "back": "[Case] ([year]): [ruling]. Key principle established: [doctrine/principle]. Why UPSC tests this: [application to topic].", "difficulty": 3},
+    {"category": "Committee/Commission", "front": "What did [verified Committee name, year] recommend about [topic]?", "back": "[Committee] ([year]), Chair: [name if certain]: Key recommendation 1: [specific]. Recommendation 2: [specific]. Status: [whether implemented].", "difficulty": 2},
+    {"category": "Latest Development", "front": "What is the most recent (2023-25) development on [topic]? Name any bill/act/committee/policy.", "back": "[Specific recent development]: [bill name year introduced/passed] OR [committee constituted year, chair] OR [policy announced]. Current status: [pending/passed/implemented]. Key provisions: [2-3 specific points].", "difficulty": 1},
+    {"category": "Data Point", "front": "Give 3 key statistics/data points relevant to [topic] for Mains answer enrichment.", "back": "1. [Stat]: [figure, source, year — use 'approximately' if not exact]. 2. [Stat]: [figure, source]. 3. [Stat]: [figure, source]. UPSC tip: use these in body paragraphs with attribution.", "difficulty": 2},
+    {"category": "International Comparison", "front": "Which countries have [practice related to topic]? What can India learn?", "back": "[Country 1]: [specific practice] — lesson: [takeaway]. [Country 2]: [practice] — lesson: [takeaway]. India's position: [current status]. Gap: [what India needs to do differently].", "difficulty": 2},
+    {"category": "Distinction", "front": "Distinguish between [Term A] and [Term B] related to [topic].", "back": "[Term A]: [definition + key features]. [Term B]: [definition + key features]. Key difference: [critical distinction]. UPSC tip: [which is tested more and how].", "difficulty": 2},
+    {"category": "Mains Quotable", "front": "Give a high-value quotable line/insight on [topic] that can elevate a Mains answer.", "back": "Quote/insight: '[substantive line from committee/court/expert/constitutional provision]'. Context: [when to use]. Pairs well with: [Article/SDG/scheme to cite alongside].", "difficulty": 3},
+    {"category": "Way Forward", "front": "What are the top 4 actionable recommendations for [topic] as per expert consensus?", "back": "1. [Specific recommendation from verified committee]. 2. [Constitutional/legal reform required]. 3. [Institutional mechanism needed]. 4. [International best practice to adopt]. Anchor to: [DPSP/SDG/constitutional vision].", "difficulty": 2}
+  ],
+  "revision_points": [
+    {"title": "Core Concept", "text": "precise definition + constitutional basis (specific Article) + key feature that distinguishes this topic"},
+    {"title": "Constitutional Backbone", "text": "list only verified Articles with Part numbers — FRs, DPSPs, Amendments — and ONE LINE on why each matters for this topic"},
+    {"title": "Key Data", "text": "3 approximate sourced statistics — format: [figure] ([source], [year]) — use for Mains answer enrichment"},
+    {"title": "Landmark Judgments", "text": "only verified SC cases — format: [Case name] ([year]): [one-line holding] — [why it matters for this topic]"},
+    {"title": "Latest Development 2024-25", "text": "most recent bill introduced/passed OR committee formed OR policy announced — name, year, key provision — THIS IS HIGHEST PRIORITY"},
+    {"title": "Government Initiatives", "text": "2-3 verified schemes/acts/bills with year and ministry — include latest constitutional amendment bill if any"},
+    {"title": "Way Forward", "text": "3 specific actionable recommendations grounded in expert consensus — cite committee or international best practice for each"}
+  ],
+  "search_keywords": ["keyword1","keyword2","keyword3 upsc","keyword4","keyword5 india","keyword6","keyword7 2024"],
+  "revision_priority": "High"
+}`
+};
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function setTopic(t) { document.getElementById('topicInput').value = t; }
+
+function setStep(n, state) {
+  const el = document.getElementById('step' + n);
+  if (!el) return;
+  const icon = document.getElementById('step' + n + 'Icon');
+  el.className = 'progress-step ' + state;
+  if (state === 'running') icon.innerHTML = '<div class="spinner"></div>';
+  else if (state === 'done')  icon.textContent = '✅';
+  else if (state === 'error') icon.textContent = '❌';
+}
+
+function showError(msg) {
+  const e = document.getElementById('errorBox');
+  e.textContent = msg;
+  e.classList.add('show');
+}
+
+function getGSClass(gs) {
+  if (!gs) return 'gs2';
+  if (gs.includes('1')) return 'gs1';
+  if (gs.includes('2')) return 'gs2';
+  if (gs.includes('3')) return 'gs3';
+  return 'gs4';
+}
+function getDiffClass(d) {
+  if (!d) return '';
+  const l = d.toLowerCase();
+  if (l.includes('easy')) return 'diff-easy';
+  if (l.includes('hard')) return 'diff-hard';
+  return 'diff-medium';
+}
+
+// ─── IMAGE UPLOAD ─────────────────────────────────────────────────────────────
+let uploadedImageBase64 = null;
+function handleImageUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    uploadedImageBase64 = e.target.result.split(',')[1];
+    document.getElementById('imagePreview').src = e.target.result;
+    document.getElementById('imagePreviewBox').style.display = 'block';
+    if (!document.getElementById('topicInput').value.trim())
+      document.getElementById('topicInput').placeholder = 'Topic will be auto-detected from image, or type to override...';
+  };
+  reader.readAsDataURL(file);
+}
+function removeImage() {
+  uploadedImageBase64 = null;
+  document.getElementById('imageInput').value = '';
+  document.getElementById('imagePreviewBox').style.display = 'none';
+  document.getElementById('imagePreview').src = '';
+  document.getElementById('topicInput').placeholder = "e.g. Uniform Civil Code, Digital Personal Data Protection Act, India's Arctic Policy...";
+}
+async function extractTopicFromImage(base64Image) {
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            role: 'user',
+            parts: [
+              { inline_data: { mime_type: 'image/jpeg', data: base64Image } },
+              { text: 'Extract for UPSC prep: (1) main topic/headline (2) key facts/dates/figures (3) context and background (4) policy/government angle. Provide detailed text summary.' }
+            ]
+          }],
+          generationConfig: { maxOutputTokens: 1500, thinkingConfig: { thinkingBudget: 0 } }
+        })
+      }
+    );
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  } catch (e) {
+    console.warn('Image extraction failed:', e.message);
+    return '';
+  }
+}
+
+// ─── MAIN ANALYSIS ────────────────────────────────────────────────────────────
+async function startAnalysis() {
+  let topic = document.getElementById('topicInput').value.trim();
+  const btn = document.getElementById('analyzeBtn');
+  const prog = document.getElementById('progressSection');
+  const errBox = document.getElementById('errorBox');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Analyzing...';
+  prog.classList.add('active');
+  errBox.classList.remove('show');
+  [1,2,3,4,5,6,7].forEach(n => setStep(n, ''));
+
+  try {
+    // Image context
+    let imageCtx = '';
+    if (uploadedImageBase64) {
+      btn.innerHTML = '<div class="spinner"></div> Reading image...';
+      imageCtx = await extractTopicFromImage(uploadedImageBase64);
+      if (!topic && imageCtx) {
+        topic = imageCtx.split('\n')[0].replace(/^[#*]+/, '').trim().substring(0, 100);
+        document.getElementById('topicInput').value = topic;
+      }
+      btn.innerHTML = '<div class="spinner"></div> Analyzing...';
+    }
+    if (!topic) {
+      showError('Please enter a topic or upload an image first!');
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Analyze Topic';
+      return;
+    }
+
+    setStep(1, 'running');
+    const s1 = await callAPI(PROMPTS.step1(topic, imageCtx), 8192);
+    analysisData.step1 = s1;
+    setStep(1, 'done');
+
+    setStep(2, 'running');
+    const s2 = await callAPI(PROMPTS.step2(topic), 4096);
+    analysisData.step2 = s2;
+    setStep(2, 'done');
+
+    setStep(3, 'running');
+    const s3 = await callAPI(PROMPTS.step3(topic), 4096);
+    analysisData.step3 = s3;
+    setStep(3, 'done');
+
+    setStep(4, 'running');
+    const s4 = await callAPI(PROMPTS.step4(topic), 6144);
+    analysisData.step4 = s4;
+    setStep(4, 'done');
+
+    setStep(5, 'running');
+    const s5 = await callAPI(PROMPTS.step5(topic), 6144);
+    analysisData.step5 = s5;
+    setStep(5, 'done');
+
+    setStep(6, 'running');
+    const s6 = await callAPI(PROMPTS.step6(topic), 6144);
+    analysisData.step6 = s6;
+    setStep(6, 'done');
+
+    setStep(7, 'running');
+    renderOutput(s1, s2, s3, s4, s5, s6);
+    setStep(7, 'done');
+
+  } catch (err) {
+    showError('Something went wrong: ' + err.message + '. Please try again.');
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Analyze Topic';
+  }
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+function renderOutput(s1, s2, s3, s4, s5, s6) {
+  document.getElementById('heroScreen').style.display = 'none';
+  document.getElementById('output').classList.add('visible');
+  document.getElementById('bottomNav').classList.add('visible');
+
+  const c = document.getElementById('outputContent');
+  const gsBadges = `<span class="gs-badge ${getGSClass(s1.primary_gs)}">${s1.primary_gs||'GS2'}</span>` +
+    (s1.secondary_gs ? `<span class="gs-badge ${getGSClass(s1.secondary_gs)}">${s1.secondary_gs}</span>` : '');
+  const tags = (s1.tags||[]).map(t=>`<span class="tag highlight">${t}</span>`).join('');
+  const diffP = `<span class="diff-badge ${getDiffClass(s1.prelims_difficulty)}">${s1.prelims_difficulty||'Medium'}</span>`;
+  const diffM = `<span class="diff-badge ${getDiffClass(s1.mains_difficulty)}">${s1.mains_difficulty||'Medium'}</span>`;
+
+  const mcqs   = s3.prelims || [];
+  const mains  = s4.mains   || [];
+
+  let html = `
+  <div style="background:#f59e0b10;border:1px solid #f59e0b40;border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.5rem;display:flex;gap:.75rem;align-items:flex-start;">
+    <div style="font-size:1.1rem;flex-shrink:0;">🔍</div>
+    <div>
+      <div style="color:#f59e0b;font-weight:700;font-size:.82rem;margin-bottom:.3rem;">Accuracy Notice — Please Read</div>
+      <div style="font-size:.78rem;color:#fde68a;line-height:1.6;">AI-generated notes for UPSC prep. <strong>Always cross-verify:</strong> Article numbers with M. Laxmikanth, SC judgments with official sources, committee recommendations with Govt reports, statistics with original sources (NFHS, NCRB, Economic Survey). <strong>Practice questions are NOT actual UPSC PYQs.</strong></div>
+    </div>
+  </div>
+
+  <!-- MODULE 1: TOPIC HEADER -->
+  <div id="module1" class="topic-header">
+    <div>${gsBadges}</div>
+    <div class="topic-title">${s1.title||''}</div>
+    <div style="font-size:.9rem;color:var(--muted);margin:.4rem 0;">${s1.definition||''}</div>
+    <div class="topic-why">${s1.why_in_news||''}</div>
+    <div style="margin-top:1rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
+      <span style="font-size:.8rem;color:var(--muted)">Prelims: ${diffP} &nbsp; Mains: ${diffM}</span>
+    </div>
+    <div class="tag-list" style="margin-top:1rem;">${tags}</div>
+  </div>
+
+  <!-- KEY TERMS -->
+  ${s1.key_terms&&s1.key_terms.length ? `<div class="module" id="module1b">
+    <div class="module-header"><div class="module-num" style="font-size:1.8rem;">🔤</div><div><div class="module-title">Key Terms Glossary</div></div></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:.75rem;">
+      ${s1.key_terms.map(t=>`<div style="background:#0d1420;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:10px;padding:.75rem 1rem;">
+        <div style="color:var(--accent);font-weight:700;font-size:.85rem;margin-bottom:.3rem;">${t.term}</div>
+        <div style="font-size:.82rem;color:var(--text);line-height:1.6;">${t.meaning}</div>
+      </div>`).join('')}
+    </div>
+  </div>` : ''}
+
+  <!-- MODULE 2: HISTORICAL BACKGROUND -->
+  <div class="module" id="module2">
+    <div class="module-header"><div class="module-num">02</div><div><div class="module-icon">🏛️</div><div class="module-title">Historical Background</div></div></div>
+    <div class="prose"><p>${s1.historical_background||''}</p></div>
+  </div>
+
+  <!-- MODULE 3: UPSC SUMMARY -->
+  <div class="module" id="module3">
+    <div class="module-header"><div class="module-num">03</div><div><div class="module-icon">📋</div><div class="module-title">UPSC Focused Summary</div></div></div>
+    <ul class="bullet-list">${(s1.upsc_summary||[]).map(b=>`<li>${b}</li>`).join('')}</ul>
+  </div>
+
+  <!-- MODULE 4: FACT BANK -->
+  <div class="module" id="module4">
+    <div class="module-header"><div class="module-num">04</div><div><div class="module-icon">🔑</div><div class="module-title">Prelims Fact Bank</div></div></div>
+    <div style="overflow-x:auto;">
+      <table class="fact-table">
+        <thead><tr><th>Category</th><th>Fact</th><th>Source</th></tr></thead>
+        <tbody>${(s2.fact_bank||[]).map(r=>`<tr><td class="fact-cat">${r.category}</td><td>${r.fact}</td><td style="color:var(--muted);font-size:.8rem">${r.source}</td></tr>`).join('')}</tbody>
+      </table>
+    </div>
+    <div class="trick-box"><div class="trick-label">💡 Trick to Remember</div>${s2.trick_to_remember||''}</div>
+  </div>
+
+  <!-- MODULE 5: PYQ PATTERN -->
+  <div class="module" id="module5">
+    <div class="module-header"><div class="module-num">05</div><div><div class="module-icon">🕰️</div><div class="module-title">UPSC Question Pattern Analysis</div></div></div>
+    <div style="background:#0d1f35;border:1px solid var(--border);border-radius:14px;padding:1.25rem;margin-bottom:1rem;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+        <div style="background:#080c14;border-radius:10px;padding:.9rem;">
+          <div style="font-size:.72rem;color:var(--accent);font-weight:700;text-transform:uppercase;margin-bottom:.5rem;">Prelims Pattern</div>
+          <div style="font-size:.85rem;line-height:1.7;">${s2.pyq_themes&&s2.pyq_themes.prelims_pattern||'—'}</div>
+        </div>
+        <div style="background:#080c14;border-radius:10px;padding:.9rem;">
+          <div style="font-size:.72rem;color:var(--gold);font-weight:700;text-transform:uppercase;margin-bottom:.5rem;">Mains Pattern</div>
+          <div style="font-size:.85rem;line-height:1.7;">${s2.pyq_themes&&s2.pyq_themes.mains_pattern||'—'}</div>
+        </div>
+      </div>
+      <div style="background:#080c14;border-radius:10px;padding:.9rem;margin-bottom:1rem;">
+        <div style="font-size:.72rem;color:#a78bfa;font-weight:700;text-transform:uppercase;margin-bottom:.5rem;">Recent Trend (2018–2024)</div>
+        <div style="font-size:.85rem;line-height:1.7;">${s2.pyq_themes&&s2.pyq_themes.recent_trend||'—'}</div>
+      </div>
+      <div>
+        <div style="font-size:.72rem;color:#10b981;font-weight:700;text-transform:uppercase;margin-bottom:.5rem;">🎯 Likely Questions for Upcoming Exams</div>
+        ${(s2.pyq_themes&&s2.pyq_themes.expected_questions||[]).map(q=>`<div style="display:flex;gap:.5rem;font-size:.85rem;margin-bottom:.35rem;"><span style="color:#10b981;flex-shrink:0;">▹</span>${q}</div>`).join('')}
+      </div>
+    </div>
+  </div>
+
+  <!-- MODULE 6: PRACTICE MCQs -->
+  <div class="module" id="module6">
+    <div class="module-header"><div class="module-num">06</div><div><div class="module-icon">🧩</div><div class="module-title">Practice MCQs — Prelims Style</div></div></div>
+    <div style="background:#f43f5e10;border:1px solid #f43f5e30;border-radius:8px;padding:.6rem 1rem;margin-bottom:1rem;font-size:.8rem;color:#fca5a5;">
+      ⚠️ AI-generated practice questions — NOT actual UPSC PYQs. Click any option to reveal answer and explanation.
+    </div>
+    ${mcqs.map((mcq,i)=>`
+      <div class="mcq-item" id="mcq${i}">
+        <div style="display:flex;justify-content:space-between;margin-bottom:.5rem;">
+          <span style="font-size:.7rem;color:var(--muted);text-transform:uppercase;">${mcq.type||'Practice'}</span>
+          ${mcq.topic_tested?`<span style="font-size:.7rem;color:var(--muted);">Tests: ${mcq.topic_tested}</span>`:''}
+        </div>
+        <div class="mcq-q" style="white-space:pre-line;">Q${i+1}. ${mcq.question}</div>
+        <div class="mcq-options">
+          ${['a','b','c','d'].map(opt=>mcq.options&&mcq.options[opt]?`
+            <button class="mcq-opt" onclick="checkAnswer(${i},'${opt}','${mcq.answer}')">
+              (${opt.toUpperCase()}) ${mcq.options[opt]}
+            </button>`:'').join('')}
+        </div>
+        <div class="mcq-explanation" id="exp${i}">📖 ${mcq.explanation||''}</div>
+      </div>`).join('')}
+  </div>
+
+  <!-- MODULE 7: MAINS ANSWER LAB -->
+  <div class="module" id="module7">
+    <div class="module-header"><div class="module-num">07</div><div><div class="module-icon">✍️</div><div class="module-title">Mains Answer Lab</div></div></div>
+    <div style="background:#f43f5e10;border:1px solid #f43f5e30;border-radius:8px;padding:.6rem 1rem;margin-bottom:1.1rem;font-size:.8rem;color:#fca5a5;">
+      ⚠️ AI-generated practice questions in UPSC style — NOT actual PYQs.
+    </div>
+    ${mains.map((q,i)=>`
+      <div class="mains-item" style="margin-bottom:1.5rem;">
+        <div class="mains-header">
+          <div class="mains-q">Q${i+1}. ${q.question}</div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.35rem;flex-shrink:0;margin-left:.75rem;">
+            <span class="mains-paper">${q.paper||'GS2'}</span>
+            ${q.marks?`<span style="background:#f59e0b20;border:1px solid #f59e0b40;color:#f59e0b;font-size:.7rem;padding:.2rem .5rem;border-radius:4px;">${q.marks} Marks</span>`:''}
+            ${q.word_limit?`<span style="background:#0ea5e915;border:1px solid #0ea5e930;color:var(--accent);font-size:.7rem;padding:.2rem .5rem;border-radius:4px;">${q.word_limit} Words</span>`:''}
+          </div>
+        </div>
+        <div class="mains-body">
+          ${q.approach_note?`<div style="background:#6366f110;border:1px solid #6366f140;border-radius:8px;padding:.65rem 1rem;margin-bottom:.85rem;font-size:.83rem;color:#c4b5fd;line-height:1.6;">💡 <strong style="color:#a78bfa;">Approach:</strong> ${q.approach_note}</div>`:''}
+          <div class="framework-section" style="margin-bottom:.65rem;">
+            <div class="framework-label intro" style="display:flex;align-items:center;gap:.4rem;">✍️ STEP 1 — INTRODUCTION <span style="margin-left:auto;font-size:.68rem;font-weight:400;color:var(--muted);">~10%</span></div>
+            <div class="framework-content">${q.introduction||'—'}</div>
+          </div>
+          <div class="framework-section" style="margin-bottom:.65rem;">
+            <div class="framework-label body" style="display:flex;align-items:center;gap:.4rem;">📋 STEP 2 — BODY STRUCTURE <span style="margin-left:auto;font-size:.68rem;font-weight:400;color:var(--muted);">~80%</span></div>
+            <div style="padding:.5rem 0 0 0;">
+              ${(q.body_structure||[]).map((sec,si)=>`
+                <div style="background:#0d1420;border-radius:10px;padding:.8rem 1.1rem;margin-bottom:.5rem;border-left:3px solid #f59e0b;">
+                  <div style="color:#f59e0b;font-size:.75rem;font-weight:700;text-transform:uppercase;margin-bottom:.55rem;">${si+1}. ${sec.heading||'Section'}</div>
+                  ${(sec.points||[]).map(p=>`<div style="display:flex;gap:.5rem;margin-bottom:.4rem;font-size:.85rem;line-height:1.6;"><span style="color:var(--accent);flex-shrink:0;">▹</span><span>${p}</span></div>`).join('')}
+                </div>`).join('')}
+            </div>
+          </div>
+          <div class="framework-section" style="margin-bottom:.65rem;">
+            <div class="framework-label conc" style="display:flex;align-items:center;gap:.4rem;">✅ STEP 3 — CONCLUSION <span style="margin-left:auto;font-size:.68rem;font-weight:400;color:var(--muted);">~10%</span></div>
+            <div class="framework-content">${q.conclusion||'—'}</div>
+          </div>
+          ${q.value_additions?`<div class="framework-section" style="margin-bottom:.65rem;">
+            <div class="framework-label boost">💎 VALUE ADDITIONS</div>
+            <div class="framework-content">${q.value_additions.split('|').map(v=>`<div style="display:flex;gap:.5rem;margin-bottom:.35rem;"><span style="color:#f59e0b;flex-shrink:0;">★</span><span>${v.trim()}</span></div>`).join('')}</div>
+          </div>`:''}
+          ${q.model_answer_hints?`<div class="framework-section">
+            <div class="framework-label" style="background:#0ea5e915;border:1px solid #0ea5e930;color:#22d3ee;padding:.4rem .8rem;border-radius:6px;font-size:.72rem;font-weight:700;text-transform:uppercase;margin-bottom:.5rem;">🎯 EXAMINER'S CHECKLIST</div>
+            <div class="framework-content" style="background:#0ea5e908;border:1px solid #0ea5e920;">${q.model_answer_hints}</div>
+          </div>`:''}
+        </div>
+      </div>`).join('')}
+  </div>
+
+  <!-- MODULE 8: MULTI-DIMENSIONAL ANALYSIS -->
+  <div class="module" id="module8">
+    <div class="module-header"><div class="module-num">08</div><div><div class="module-icon">⚖️</div><div class="module-title">Multi-Dimensional Analysis</div></div></div>
+    <div class="pros-cons-grid">
+      <div class="pros-col">
+        <div class="col-title">✓ ${s5.pros_label||'Arguments in Favour'}</div>
+        ${(s5.pros||[]).map(p=>`<div class="pros-cons-item">${p.point}</div>`).join('')}
+      </div>
+      <div class="cons-col">
+        <div class="col-title">✗ ${s5.cons_label||'Concerns / Challenges'}</div>
+        ${(s5.cons||[]).map(p=>`<div class="pros-cons-item">${p.point}</div>`).join('')}
+      </div>
+    </div>
+    <div class="balanced-box"><div class="balanced-label">⚖️ Balanced UPSC Perspective</div>${s5.balanced_perspective||''}</div>
+  </div>
+
+  <!-- MODULE 9: VALUE ADDITION BANK -->
+  <div class="module" id="module9">
+    <div class="module-header"><div class="module-num">09</div><div><div class="module-icon">💎</div><div class="module-title">Value Addition Bank</div></div></div>
+    <div class="val-section">
+      <div class="val-section-title">📑 Reports & Indices</div>
+      ${(s5.reports||[]).map(r=>`<div class="val-item"><span class="val-name">${r.name}</span> — ${r.by}<br><span style="color:var(--muted);font-size:.8rem">${r.finding}</span></div>`).join('')}
+    </div>
+    <div class="val-section">
+      <div class="val-section-title">🏛️ Committees & Commissions</div>
+      ${(s5.committees||[]).map(c=>`<div class="val-item"><span class="val-name">${c.name}</span> (${c.year}) — Chair: ${c.chair}<br><span style="color:var(--muted);font-size:.8rem">📌 ${c.recommendation}</span></div>`).join('')}
+    </div>
+    <div class="val-section">
+      <div class="val-section-title">🎯 Schemes & Missions</div>
+      ${(s5.schemes||[]).map(s=>`<div class="val-item"><span class="val-name">${s.name}</span> — ${s.by}<br><span style="color:var(--muted);font-size:.8rem">${s.objective}</span></div>`).join('')}
+    </div>
+    <div class="val-section">
+      <div class="val-section-title">🌐 International Frameworks</div>
+      ${(s5.international_frameworks||[]).map(f=>`<div class="val-item"><span class="val-name">${f.name}</span> (${f.year})<br><span style="color:var(--muted);font-size:.8rem">India: ${f.india_status}</span></div>`).join('')}
+    </div>
+    <div class="val-section">
+      <div class="val-section-title">🎯 SDG Linkage</div>
+      <div class="sdg-pills">${(s5.sdg_links||[]).map(s=>`<span class="sdg-pill">${s}</span>`).join('')}</div>
+    </div>
+    <div class="val-section" style="margin-bottom:0">
+      <div class="val-section-title">🇮🇳 Constitutional Connect</div>
+      <div class="val-item">${s5.constitutional_connect||''}</div>
+    </div>
+  </div>
+
+  <!-- MODULE 10: DIAGRAMS -->
+  <div class="module" id="module10">
+    <div class="module-header"><div class="module-num">10</div><div><div class="module-icon">🖊️</div><div class="module-title">Diagram Suggestions</div></div></div>
+    ${(s6.diagrams||[]).map(d=>`
+      <div class="diagram-item">
+        <span class="diagram-type">${d.type}</span>
+        <div class="diagram-title">${d.title}</div>
+        <div style="font-size:.8rem;color:var(--accent);margin-bottom:.5rem;">Supports: ${d.supports}</div>
+        <div class="diagram-nodes">${d.nodes}</div>
+        <div style="font-size:.75rem;color:var(--muted);margin-top:.5rem;">⏱ Estimated time: ${d.time}</div>
+      </div>`).join('')}
+  </div>
+
+  <!-- MODULE 11: FLASHCARDS -->
+  <div class="module" id="module11">
+    <div class="module-header"><div class="module-num">11</div><div><div class="module-icon">🃏</div><div class="module-title">Revision Flashcards</div></div></div>
+    <div style="font-size:.8rem;color:var(--muted);margin-bottom:1rem;">💡 Hover or tap a card to reveal the answer</div>
+    <div class="flashcards-grid">
+      ${(s6.flashcards||[]).map((card,i)=>`
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+          <div class="flashcard-inner">
+            <div class="card-face card-front">
+              <div><div class="card-cat">${card.category}</div><div class="card-q">${card.front}</div></div>
+              <div class="card-hint">Tap to flip · ${'⭐'.repeat(card.difficulty||1)}</div>
+            </div>
+            <div class="card-face card-back">
+              <div><div class="card-cat" style="color:#7dd3fc">${card.category}</div><div class="card-a">${card.back}</div></div>
+              <div class="card-hint" style="color:#0ea5e980">Tap to flip back</div>
+            </div>
+          </div>
+        </div>`).join('')}
+    </div>
+  </div>
+
+  <!-- MODULE 12: REVISION BOX -->
+  <div id="module12" class="revision-box" style="margin-bottom:1.5rem;">
+    <h3>⏱️ 30-Second Revision Box</h3>
+    <div class="revision-points">
+      ${(s6.revision_points||[]).map((p,i)=>`
+        <div class="rev-point">
+          <div class="rev-num">0${i+1}</div>
+          <div><div style="font-weight:700;color:#fde68a;margin-bottom:.2rem;">${p.title}</div><div class="rev-text">${p.text}</div></div>
+        </div>`).join('')}
+    </div>
+  </div>
+
+  <!-- MODULE 13: LATEST BILLS & CONSTITUTIONAL AMENDMENTS -->
+  ${(()=>{
+    const bills = (s2.fact_bank||[]).filter(f => f.category === 'Constitutional Amendment Bill' || (f.fact && (f.fact.toLowerCase().includes('amendment bill') || f.fact.toLowerCase().includes('amendment act') || f.fact.toLowerCase().includes('constitution (') || f.fact.toLowerCase().includes('129th'))));
+    const recentDev = (s2.fact_bank||[]).filter(f => f.category === 'Recent Development');
+    if(!bills.length && !recentDev.length) return '';
+    return `<div class="module" id="module13" style="border-color:#16a34a40;background:linear-gradient(135deg,#16a34a08,#0d1420);">
+      <div class="module-header">
+        <div class="module-num" style="background:#16a34a;font-size:.75rem;">📜</div>
+        <div><div class="module-icon">⚡</div><div class="module-title" style="color:#4ade80;">Latest Constitutional Bills & Recent Developments (2023–25)</div></div>
+      </div>
+      <div style="font-size:.8rem;color:#4ade80;background:#16a34a15;border:1px solid #16a34a30;border-radius:8px;padding:.5rem 1rem;margin-bottom:1rem;">
+        🎯 HIGH PRIORITY — These are most likely to appear in upcoming UPSC exams. Know these first.
+      </div>
+      ${bills.map(b=>`
+        <div style="background:#0d1420;border:1px solid var(--border);border-left:4px solid #4ade80;border-radius:10px;padding:.85rem 1rem;margin-bottom:.75rem;">
+          <div style="color:#4ade80;font-weight:700;font-size:.78rem;text-transform:uppercase;margin-bottom:.3rem;">📜 Constitutional Amendment / Bill</div>
+          <div style="font-size:.88rem;line-height:1.7;">${b.fact}</div>
+          <div style="font-size:.75rem;color:var(--muted);margin-top:.3rem;">Source: ${b.source}</div>
+        </div>`).join('')}
+      ${recentDev.map(d=>`
+        <div style="background:#0d1420;border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:10px;padding:.85rem 1rem;margin-bottom:.75rem;">
+          <div style="color:var(--accent);font-weight:700;font-size:.78rem;text-transform:uppercase;margin-bottom:.3rem;">🔔 Recent Development</div>
+          <div style="font-size:.88rem;line-height:1.7;">${d.fact}</div>
+          <div style="font-size:.75rem;color:var(--muted);margin-top:.3rem;">Source: ${d.source}</div>
+        </div>`).join('')}
+    </div>`;
+  })()}
+
+  <!-- MODULE 14: ACCURACY AUDIT PANEL -->
+  <div class="module" id="module14" style="border-color:#f59e0b40;background:linear-gradient(135deg,#f59e0b06,#0d1420);">
+    <div class="module-header">
+      <div class="module-num" style="background:#f59e0b;color:#000;font-size:.75rem;">🔍</div>
+      <div><div class="module-title" style="color:#f59e0b;">Accuracy Audit — Cross-Verify Before Exam</div></div>
+    </div>
+    <div style="font-size:.82rem;color:#94a3b8;margin-bottom:1rem;line-height:1.6;">
+      This AI is highly accurate but not infallible. Below are the facts most worth double-checking with authoritative sources.
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
+      <div style="background:#0d1420;border:1px solid var(--border);border-radius:10px;padding:.85rem 1rem;">
+        <div style="color:#4ade80;font-weight:700;font-size:.78rem;margin-bottom:.6rem;">✅ High Confidence — Stable Facts</div>
+        ${(s2.fact_bank||[]).filter(f=>['Constitutional Article','Important Date'].includes(f.category)).slice(0,4).map(f=>`
+          <div style="font-size:.8rem;line-height:1.6;padding:.3rem 0;border-bottom:1px solid var(--border);color:#94a3b8;">
+            <span style="color:#4ade80;">✓</span> ${f.fact.substring(0,90)}${f.fact.length>90?'…':''}
+          </div>`).join('')}
+        <div style="font-size:.75rem;color:var(--muted);margin-top:.5rem;">Verify: M. Laxmikanth / Constitution of India</div>
+      </div>
+      <div style="background:#0d1420;border:1px solid var(--border);border-radius:10px;padding:.85rem 1rem;">
+        <div style="color:#f59e0b;font-weight:700;font-size:.78rem;margin-bottom:.6rem;">⚠️ Verify These — Statistics & Committees</div>
+        ${(s2.fact_bank||[]).filter(f=>['Key Statistic','Committee','Report/Index'].includes(f.category)).slice(0,4).map(f=>`
+          <div style="font-size:.8rem;line-height:1.6;padding:.3rem 0;border-bottom:1px solid var(--border);color:#94a3b8;">
+            <span style="color:#f59e0b;">⚠</span> ${f.fact.substring(0,90)}${f.fact.length>90?'…':''}
+          </div>`).join('')}
+        <div style="font-size:.75rem;color:var(--muted);margin-top:.5rem;">Verify: Official Govt reports / PIB / PRS India</div>
+      </div>
+      <div style="background:#0d1420;border:1px solid var(--border);border-radius:10px;padding:.85rem 1rem;">
+        <div style="color:#f87171;font-weight:700;font-size:.78rem;margin-bottom:.6rem;">🔴 Always Verify — SC Cases & Treaties</div>
+        ${(s2.fact_bank||[]).filter(f=>['SC Judgment','Treaty/Convention','International Framework'].includes(f.category)).slice(0,4).map(f=>`
+          <div style="font-size:.8rem;line-height:1.6;padding:.3rem 0;border-bottom:1px solid var(--border);color:#94a3b8;">
+            <span style="color:#f87171;">⚠</span> ${f.fact.substring(0,90)}${f.fact.length>90?'…':''}
+          </div>`).join('')}
+        <div style="font-size:.75rem;color:var(--muted);margin-top:.5rem;">Verify: SCC Online / IndianKanoon / MEA India</div>
+      </div>
+      <div style="background:#0d1420;border:1px solid var(--border);border-radius:10px;padding:.85rem 1rem;">
+        <div style="color:var(--accent);font-weight:700;font-size:.78rem;margin-bottom:.6rem;">📋 Quick Reference Sources</div>
+        <div style="font-size:.8rem;line-height:1.9;color:#94a3b8;">
+          📖 Polity → M. Laxmikanth (6th Ed.)<br>
+          ⚖️ Cases → IndianKanoon.org / SCC Online<br>
+          📊 Data → Economic Survey / NCRB / NFHS<br>
+          🏛️ Bills → PRS India (prsindia.org)<br>
+          🌐 International → MEA India / UN Treaties<br>
+          📰 Current Affairs → PIB / The Hindu / IE
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAGS FOOTER -->
+  <div class="tags-footer" id="module15">
+    <span class="tag-footer-item primary">${s1.primary_gs||'GS2'}</span>
+    ${(s1.tags||[]).map(t=>`<span class="tag-footer-item">#${t.replace(/\s+/g,'')}</span>`).join('')}
+    ${(s6.search_keywords||[]).map(k=>`<span class="tag-footer-item">${k}</span>`).join('')}
+    <span class="tag-footer-item" style="background:#f43f5e15;border-color:#f43f5e30;color:#f43f5e;">Priority: ${s6.revision_priority||'High'}</span>
+  </div>
+
+  <div style="text-align:center;padding:2rem;color:var(--muted);font-size:.8rem;">
+    Generated by UPSC Guru AI · Powered by Gemini 2.5 Flash (Google) · For exam preparation only · Always verify facts before exam
+  </div>`;
+
+  c.innerHTML = html;
+  window.scrollTo(0, 0);
+}
+
+// ─── MCQ INTERACTION ──────────────────────────────────────────────────────────
+function checkAnswer(idx, selected, correct) {
+  const el = document.getElementById('mcq' + idx);
+  const opts = el.querySelectorAll('.mcq-opt');
+  const letters = ['a','b','c','d'];
+  opts.forEach((opt, i) => {
+    opt.disabled = true;
+    if (letters[i] === correct) opt.classList.add('correct');
+    else if (letters[i] === selected && selected !== correct) opt.classList.add('wrong');
+  });
+  document.getElementById('exp' + idx).classList.add('show');
+}
+
+// ─── DOWNLOAD ─────────────────────────────────────────────────────────────────
+function downloadNotes() {
+  const topic = (analysisData.step1 && analysisData.step1.title) ? analysisData.step1.title : 'UPSC Notes';
+  const content = document.getElementById('outputContent');
+  if (!content || !content.innerHTML.trim()) { alert('No notes to download yet!'); return; }
+
+  const clone = content.cloneNode(true);
+
+  // ── FIX MCQ OPTIONS: convert interactive buttons → static readable divs ──
+  clone.querySelectorAll('.mcq-item').forEach((mcqEl, idx) => {
+    const s3data = analysisData.step3;
+    const mcqData = s3data && s3data.prelims && s3data.prelims[idx];
+    const correctLetter = mcqData ? mcqData.answer : null;
+
+    // Replace button-based options with static divs showing answer
+    const optionsDiv = mcqEl.querySelector('.mcq-options');
+    if (optionsDiv && mcqData && mcqData.options) {
+      let staticHtml = '';
+      ['a','b','c','d'].forEach(letter => {
+        const text = mcqData.options[letter];
+        if (!text) return;
+        const isCorrect = letter === correctLetter;
+        const bg = isCorrect ? 'background:#052e16;border:1.5px solid #16a34a;' : 'background:#0d1420;border:1px solid #1e2d45;';
+        const color = isCorrect ? 'color:#4ade80;font-weight:700;' : 'color:#e2e8f0;';
+        const mark = isCorrect ? ' ✅' : '';
+        staticHtml += `<div style="${bg}${color}border-radius:8px;padding:.5rem .8rem;margin-bottom:.4rem;font-size:.85rem;">(${letter.toUpperCase()}) ${text}${mark}</div>`;
+      });
+      optionsDiv.innerHTML = staticHtml;
+    }
+
+    // Show explanation by default in downloaded version
+    const expEl = mcqEl.querySelector('.mcq-explanation');
+    if (expEl) expEl.classList.add('show');
+  });
+
+  // Remove any remaining interactive-only buttons (nav buttons etc)
+  clone.querySelectorAll('button').forEach(b => b.remove());
+
+  // Remove flashcard flip interaction note (cosmetic)
+  clone.querySelectorAll('.card-hint').forEach(h => { if(h.textContent.includes('Tap to flip')) h.remove(); });
+
+  // Inline the app's CSS variables for correct dark-theme rendering in saved file
+  const styleBlock = `<style>
+    :root{--bg:#080c14;--surface:#0d1420;--card:#111827;--border:#1e2d45;--accent:#22d3ee;--gold:#f59e0b;--green:#10b981;--rose:#f43f5e;--purple:#a78bfa;--text:#e2e8f0;--muted:#64748b;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:var(--bg);color:var(--text);font-family:Arial,sans-serif;max-width:960px;margin:0 auto;padding:2rem;line-height:1.7;}
+    h1{color:var(--accent);font-size:1.4rem;margin-bottom:.5rem;}
+    .module{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.25rem;margin-bottom:1.5rem;}
+    .module-header{display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;}
+    .module-num{background:var(--accent);color:#000;font-weight:800;font-size:.85rem;min-width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;}
+    .module-title{font-weight:700;font-size:1rem;color:var(--text);}
+    .module-icon{font-size:1.2rem;}
+    .prose p{font-size:.9rem;line-height:1.8;color:var(--text);}
+    .bullet-list{list-style:none;padding:0;}
+    .bullet-list li{padding:.5rem 0;border-bottom:1px solid var(--border);font-size:.88rem;line-height:1.7;}
+    .bullet-list li::before{content:"▸ ";color:var(--accent);}
+    .fact-table{width:100%;border-collapse:collapse;font-size:.82rem;}
+    .fact-table th{background:#0d1f35;color:var(--accent);padding:.5rem .75rem;text-align:left;border:1px solid var(--border);}
+    .fact-table td{padding:.5rem .75rem;border:1px solid var(--border);vertical-align:top;}
+    .fact-cat{color:var(--gold);font-weight:700;white-space:nowrap;}
+    .trick-box{background:#0d1f35;border:1px solid #1e3a5f;border-left:4px solid var(--gold);border-radius:10px;padding:1rem;margin-top:1rem;font-size:.85rem;}
+    .trick-label{color:var(--gold);font-weight:700;margin-bottom:.4rem;}
+    .gs-badge{display:inline-block;padding:.2rem .6rem;border-radius:4px;font-size:.72rem;font-weight:700;margin-right:.4rem;}
+    .gs1{background:#7c3aed20;color:#a78bfa;border:1px solid #7c3aed40;}
+    .gs2{background:#0ea5e920;color:#22d3ee;border:1px solid #0ea5e940;}
+    .gs3{background:#16a34a20;color:#4ade80;border:1px solid #16a34a40;}
+    .gs4{background:#f59e0b20;color:#f59e0b;border:1px solid #f59e0b40;}
+    .topic-title{font-size:1.3rem;font-weight:800;color:var(--text);margin:.5rem 0;}
+    .topic-why{font-size:.88rem;line-height:1.7;color:#94a3b8;margin-top:.5rem;}
+    .diff-badge{display:inline-block;padding:.15rem .5rem;border-radius:4px;font-size:.72rem;font-weight:700;}
+    .diff-easy{background:#16a34a20;color:#4ade80;border:1px solid #16a34a30;}
+    .diff-medium{background:#f59e0b20;color:#f59e0b;border:1px solid #f59e0b30;}
+    .diff-hard{background:#f43f5e20;color:#f87171;border:1px solid #f43f5e30;}
+    .tag{display:inline-block;background:#0ea5e910;border:1px solid #0ea5e930;color:var(--accent);padding:.2rem .6rem;border-radius:6px;font-size:.75rem;margin:.2rem;}
+    .mcq-item{background:#0d1420;border:1px solid var(--border);border-radius:12px;padding:1rem;margin-bottom:1rem;}
+    .mcq-q{font-weight:600;font-size:.9rem;margin-bottom:.75rem;line-height:1.6;}
+    .mcq-explanation{background:#0d1f35;border:1px solid #1e3a5f;border-radius:8px;padding:.75rem 1rem;margin-top:.75rem;font-size:.82rem;line-height:1.7;color:#94a3b8;}
+    .mains-item{background:#0d1420;border:1px solid var(--border);border-radius:14px;padding:1.25rem;margin-bottom:1.5rem;}
+    .mains-q{font-weight:700;font-size:.92rem;line-height:1.6;color:var(--text);}
+    .mains-paper{background:#0ea5e920;border:1px solid #0ea5e940;color:var(--accent);font-size:.72rem;padding:.25rem .6rem;border-radius:4px;font-weight:700;}
+    .framework-section{margin-bottom:.65rem;}
+    .framework-label{padding:.4rem .8rem;border-radius:6px;font-size:.72rem;font-weight:700;text-transform:uppercase;margin-bottom:.5rem;}
+    .intro{background:#7c3aed15;border:1px solid #7c3aed30;color:#a78bfa;}
+    .body{background:#0ea5e915;border:1px solid #0ea5e930;color:#22d3ee;}
+    .conc{background:#16a34a15;border:1px solid #16a34a30;color:#4ade80;}
+    .boost{background:#f59e0b15;border:1px solid #f59e0b30;color:#f59e0b;padding:.4rem .8rem;border-radius:6px;font-size:.72rem;font-weight:700;text-transform:uppercase;margin-bottom:.5rem;}
+    .framework-content{background:#080c14;border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem;font-size:.84rem;line-height:1.7;}
+    .pros-cons-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+    .pros-col{background:#16a34a08;border:1px solid #16a34a20;border-radius:12px;padding:1rem;}
+    .cons-col{background:#f43f5e08;border:1px solid #f43f5e20;border-radius:12px;padding:1rem;}
+    .col-title{font-weight:700;font-size:.82rem;margin-bottom:.75rem;}
+    .pros-cons-item{font-size:.83rem;line-height:1.7;padding:.5rem 0;border-bottom:1px solid var(--border);}
+    .schemes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:.75rem;}
+    .scheme-card{background:#0d1420;border:1px solid var(--border);border-radius:10px;padding:.75rem;}
+    .flashcards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;}
+    .flashcard{background:#0d1420;border:1px solid var(--border);border-radius:12px;padding:1rem;}
+    .card-cat{color:var(--accent);font-size:.72rem;font-weight:700;text-transform:uppercase;margin-bottom:.4rem;}
+    .card-q{font-weight:600;font-size:.85rem;line-height:1.5;margin-bottom:.5rem;}
+    .card-a{font-size:.82rem;line-height:1.6;color:#94a3b8;}
+    .revision-box{background:linear-gradient(135deg,#0d1f35,#0d1420);border:1px solid #1e3a5f;border-radius:16px;padding:1.5rem;}
+    .revision-box h3{color:var(--gold);margin-bottom:1rem;}
+    .rev-point{display:flex;gap:1rem;padding:.75rem 0;border-bottom:1px solid var(--border);align-items:flex-start;}
+    .rev-num{background:var(--gold);color:#000;font-weight:800;font-size:.75rem;min-width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .rev-text{font-size:.85rem;line-height:1.7;}
+    .tags-footer{display:flex;flex-wrap:wrap;gap:.4rem;padding:1rem;background:var(--surface);border-radius:12px;margin-bottom:1rem;}
+    .tag-footer-item{background:#0d1420;border:1px solid var(--border);color:var(--muted);padding:.25rem .6rem;border-radius:6px;font-size:.75rem;}
+    .tag-footer-item.primary{background:var(--accent);color:#000;font-weight:700;border:none;}
+    .accuracy-module{background:#f59e0b08;border:1px solid #f59e0b30;border-radius:16px;padding:1.25rem;margin-bottom:1.5rem;}
+    .audit-item{display:flex;gap:.75rem;padding:.6rem 0;border-bottom:1px solid #1e2d45;font-size:.83rem;line-height:1.6;align-items:flex-start;}
+    .audit-icon{flex-shrink:0;font-size:1rem;margin-top:.1rem;}
+    .latest-bills-module{background:#16a34a08;border:1px solid #16a34a30;border-radius:16px;padding:1.25rem;margin-bottom:1.5rem;}
+    .bill-card{background:#0d1420;border:1px solid var(--border);border-left:4px solid #4ade80;border-radius:10px;padding:.85rem 1rem;margin-bottom:.75rem;}
+    @media print{body{background:#fff;color:#111;}.module{border:1px solid #e2e8f0;background:#fff;}.prose p,.bullet-list li,.mcq-explanation,.framework-content,.card-a,.rev-text{color:#111;}}
+  </style>`;
+
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${topic} — UPSC Notes</title>${styleBlock}</head><body>
+  <div style="background:#0d1f35;border:1px solid #1e3a5f;border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.5rem;display:flex;gap:.75rem;align-items:flex-start;">
+    <div style="font-size:1.1rem;flex-shrink:0;">🔍</div>
+    <div><div style="color:#f59e0b;font-weight:700;font-size:.82rem;margin-bottom:.3rem;">Accuracy Notice — Please Read</div>
+    <div style="font-size:.78rem;color:#94a3b8;line-height:1.6;">AI-generated notes for UPSC prep. <strong>Always cross-verify:</strong> Article numbers with M. Laxmikanth, SC judgments with official sources, committee recommendations with Govt reports, statistics with original sources (NFHS, NCRB, Economic Survey). <strong>Practice questions are NOT actual UPSC PYQs.</strong></div></div>
+  </div>
+  <h1>📚 ${topic}</h1>
+  <p style="color:#64748b;font-size:.82rem;margin-bottom:1.5rem;">Generated by UPSC Guru AI · Powered by Gemini 2.5 Flash · For exam prep only</p>
+  ${clone.innerHTML}</body></html>`;
+
+  const blob = new Blob([html], {type:'text/html'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = topic.replace(/[^a-z0-9]/gi,'_') + '_UPSC_Notes.html';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ─── RESET ────────────────────────────────────────────────────────────────────
+function resetApp() {
+  document.getElementById('heroScreen').style.display = 'flex';
+  document.getElementById('heroScreen').style.flexDirection = 'column';
+  document.getElementById('output').classList.remove('visible');
+  document.getElementById('bottomNav').classList.remove('visible');
+  document.getElementById('progressSection').classList.remove('active');
+  document.getElementById('analyzeBtn').disabled = false;
+  document.getElementById('analyzeBtn').innerHTML = '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Analyze Topic';
+  document.getElementById('topicInput').value = '';
+  document.getElementById('errorBox').classList.remove('show');
+  [1,2,3,4,5,6,7].forEach(n => setStep(n, ''));
+  analysisData = {};
+}
+</script>
+<!-- CORS Help Modal -->
+<div id="corsModal" style="display:none;position:fixed;inset:0;background:#000a;z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#111827;border:1px solid #1e2d45;border-radius:20px;padding:2rem;max-width:520px;width:100%;position:relative;">
+    <button onclick="document.getElementById('corsModal').style.display='none'" style="position:absolute;top:1rem;right:1rem;background:none;border:none;color:#64748b;font-size:1.5rem;cursor:pointer;">✕</button>
+    <h3 style="font-family:'Syne',sans-serif;color:#22d3ee;margin-bottom:1rem;">🔧 How to Fix "Failed to Fetch"</h3>
+    <p style="color:#94a3b8;font-size:.85rem;margin-bottom:1.25rem;">Browsers block API calls from local files. Run a tiny local server in <strong style="color:#e2e8f0;">2 minutes</strong>:</p>
+
+    <div style="background:#0d1420;border-radius:10px;padding:1rem;margin-bottom:1rem;">
+      <div style="color:#f59e0b;font-size:.75rem;font-weight:700;margin-bottom:.5rem;">OPTION 1 — Python (Easiest, already installed on most PCs)</div>
+      <div style="color:#e2e8f0;font-size:.8rem;margin-bottom:.4rem;">1. Open <strong>Command Prompt / Terminal</strong></div>
+      <div style="color:#e2e8f0;font-size:.8rem;margin-bottom:.4rem;">2. Type: <code style="background:#1e2d45;padding:.1rem .4rem;border-radius:4px;color:#22d3ee;">cd Downloads</code> (or wherever the file is)</div>
+      <div style="color:#e2e8f0;font-size:.8rem;margin-bottom:.4rem;">3. Run: <code style="background:#1e2d45;padding:.1rem .4rem;border-radius:4px;color:#22d3ee;">python -m http.server 8080</code></div>
+      <div style="color:#e2e8f0;font-size:.8rem;">4. Open browser → <code style="background:#1e2d45;padding:.1rem .4rem;border-radius:4px;color:#10b981;">http://localhost:8080/UPSC_Guru_AI_updated.html</code></div>
+    </div>
+
+    <div style="background:#0d1420;border-radius:10px;padding:1rem;margin-bottom:1rem;">
+      <div style="color:#a78bfa;font-size:.75rem;font-weight:700;margin-bottom:.5rem;">OPTION 2 — VS Code (if you use it)</div>
+      <div style="color:#e2e8f0;font-size:.8rem;">Install the <strong>Live Server</strong> extension → Right-click the HTML file → <em>Open with Live Server</em></div>
+    </div>
+
+    <div style="background:#0d1420;border-radius:10px;padding:1rem;">
+      <div style="color:#10b981;font-size:.75rem;font-weight:700;margin-bottom:.5rem;">OPTION 3 — Node.js</div>
+      <div style="color:#e2e8f0;font-size:.8rem;">Run: <code style="background:#1e2d45;padding:.1rem .4rem;border-radius:4px;color:#22d3ee;">npx serve .</code> in the file's folder</div>
+    </div>
+
+    <p style="color:#64748b;font-size:.75rem;margin-top:1rem;">Google Gemini API supports direct browser access — no proxy needed! If you still get errors, check your API key is valid and the model is available in your region.</p>
+  </div>
+</div>
+</body>
+</html>
