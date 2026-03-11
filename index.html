@@ -555,6 +555,44 @@ STRICT ACCURACY RULES — VIOLATIONS WILL HARM STUDENTS:
   return parseJSON(text.replace(/```json|```/g, '').trim());
 }
 
+// ─── API CALLER WITH IMAGE (for Step 1 when image is uploaded) ───────────────
+async function callAPIWithImage(prompt, imagePart, maxTokens = 8192) {
+  const parts = [];
+  if (imagePart) parts.push(imagePart);
+  parts.push({ text: prompt });
+
+  const sysText = 'You are a senior UPSC expert and fact-checker with 25 years of experience. Respond ONLY with valid JSON — no markdown fences, no commentary. Always close all JSON brackets.\n\n' +
+    'STRICT ACCURACY RULES:\n' +
+    '1. CONSTITUTIONAL ARTICLES: Only cite articles you are certain apply. Art.83=Lok Sabha duration, 85=dissolution, 172=State Assembly duration, 174=State dissolution, 356=Presidents Rule, 368=Amendment.\n' +
+    '2. SC JUDGMENTS: Only name cases you are 100% certain about with correct year. Never invent case names.\n' +
+    '3. COMMITTEES: Only real committees. NITI Aayog Working Paper 2017 (NOT 2015). Kovind HLC 2023.\n' +
+    '4. INTERNATIONAL: NEVER cite Germany for simultaneous elections. Verified: South Africa, Sweden, Indonesia (2019).\n' +
+    '5. LATEST BILLS: Always include most recent Constitutional Amendment Bills (2023-2025).\n' +
+    '6. STATISTICS: Use approximate figures only. Never invent precise numbers.\n' +
+    '7. IMAGE: If an image is provided, read it carefully — base your ENTIRE analysis on the topic in the image, not any previous topic.';
+
+  const res = await fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + GEMINI_API_KEY,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: sysText }] },
+        contents: [{ role: 'user', parts }],
+        generationConfig: { maxOutputTokens: maxTokens, thinkingConfig: { thinkingBudget: 0 } }
+      })
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err.error && err.error.message) || 'API error ' + res.status);
+  }
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  return parseJSON(text.replace(/```json|```/g, '').trim());
+}
+
 function parseJSON(raw) {
   try { return JSON.parse(raw); } catch(e) {}
   try {
@@ -964,27 +1002,34 @@ function getDiffClass(d) {
 
 // ─── IMAGE UPLOAD ─────────────────────────────────────────────────────────────
 let uploadedImageBase64 = null;
+let uploadedImageMime = 'image/jpeg';
+
 function handleImageUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
+  uploadedImageMime = file.type || 'image/jpeg'; // ← fix: detect real mime type
   const reader = new FileReader();
   reader.onload = (e) => {
     uploadedImageBase64 = e.target.result.split(',')[1];
     document.getElementById('imagePreview').src = e.target.result;
     document.getElementById('imagePreviewBox').style.display = 'block';
-    if (!document.getElementById('topicInput').value.trim())
-      document.getElementById('topicInput').placeholder = 'Topic will be auto-detected from image, or type to override...';
+    document.getElementById('topicInput').value = '';
+    document.getElementById('topicInput').placeholder = 'Topic auto-detected from image — or type to override...';
   };
   reader.readAsDataURL(file);
 }
+
 function removeImage() {
   uploadedImageBase64 = null;
+  uploadedImageMime = 'image/jpeg';
   document.getElementById('imageInput').value = '';
   document.getElementById('imagePreviewBox').style.display = 'none';
   document.getElementById('imagePreview').src = '';
   document.getElementById('topicInput').placeholder = "e.g. Uniform Civil Code, Digital Personal Data Protection Act, India's Arctic Policy...";
 }
-async function extractTopicFromImage(base64Image) {
+
+// Lightweight title extractor — just gets topic name, no big summary (saves tokens)
+async function extractTopicFromImage(base64Image, mimeType) {
   try {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
@@ -995,19 +1040,19 @@ async function extractTopicFromImage(base64Image) {
           contents: [{
             role: 'user',
             parts: [
-              { inline_data: { mime_type: 'image/jpeg', data: base64Image } },
-              { text: 'Extract for UPSC prep: (1) main topic/headline (2) key facts/dates/figures (3) context and background (4) policy/government angle. Provide detailed text summary.' }
+              { inline_data: { mime_type: mimeType, data: base64Image } },
+              { text: 'Look at this news article image. Reply with ONLY a short UPSC topic title (5-10 words max) capturing the main subject — e.g. "India-Iran Relations and Strategic Interests" or "Operation Sindoor and India-Pakistan Conflict 2025". No explanation, just the title.' }
             ]
           }],
-          generationConfig: { maxOutputTokens: 1500, thinkingConfig: { thinkingBudget: 0 } }
+          generationConfig: { maxOutputTokens: 50, thinkingConfig: { thinkingBudget: 0 } }
         })
       }
     );
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    return (data.candidates?.[0]?.content?.parts?.[0]?.text || '').trim().replace(/^["*#]+|["*#]+$/g,'').trim();
   } catch (e) {
-    console.warn('Image extraction failed:', e.message);
+    console.warn('Image topic extraction failed:', e.message);
     return '';
   }
 }
@@ -1015,64 +1060,100 @@ async function extractTopicFromImage(base64Image) {
 // ─── MAIN ANALYSIS ────────────────────────────────────────────────────────────
 async function startAnalysis() {
   if (!GEMINI_API_KEY) { showAPIKeyModal(); return; }
+
   let topic = document.getElementById('topicInput').value.trim();
-  const btn = document.getElementById('analyzeBtn');
-  const prog = document.getElementById('progressSection');
+  const btn   = document.getElementById('analyzeBtn');
+  const prog  = document.getElementById('progressSection');
   const errBox = document.getElementById('errorBox');
+
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner"></div> Analyzing...';
   prog.classList.add('active');
   errBox.classList.remove('show');
   [1,2,3,4,5,6,7].forEach(n => setStep(n, ''));
 
+  // shared finish helper
+  const finishBtn = () => {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Analyze Topic';
+  };
+
   try {
-    // Image context
-    let imageCtx = '';
-    if (uploadedImageBase64) {
-      btn.innerHTML = '<div class="spinner"></div> Reading image...';
-      imageCtx = await extractTopicFromImage(uploadedImageBase64);
-      if (!topic && imageCtx) {
-        topic = imageCtx.split('\n')[0].replace(/^[#*]+/, '').trim().substring(0, 100);
-        document.getElementById('topicInput').value = topic;
-      }
+
+    // ── 1. PASTED ARTICLE TEXT ─────────────────────────────────────────────
+    let articleContext = '';
+    if (topic.length > 200 && !uploadedImageBase64) {
+      btn.innerHTML = '<div class="spinner"></div> Detecting topic from article...';
+      try {
+        const r = await fetch(
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + GEMINI_API_KEY,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ role: 'user', parts: [{ text: 'Read this news article and reply with ONLY a short UPSC topic title (6-10 words). Example: "India-Iran Relations and Strategic Interests 2025". Just the title, nothing else.\n\nArticle:\n' + topic.substring(0, 3000) }] }],
+              generationConfig: { maxOutputTokens: 30, thinkingConfig: { thinkingBudget: 0 } }
+            })
+          }
+        );
+        if (r.ok) {
+          const d = await r.json();
+          const extracted = (d.candidates?.[0]?.content?.parts?.[0]?.text || '').trim().replace(/^["*#\n]+|["*#\n]+$/g, '').trim();
+          if (extracted && extracted.length > 5 && extracted.length < 120) {
+            articleContext = topic.substring(0, 2000);
+            topic = extracted;
+            document.getElementById('topicInput').value = topic;
+          }
+        }
+      } catch(e) { /* ignore — fall through with original text */ }
       btn.innerHTML = '<div class="spinner"></div> Analyzing...';
     }
-    if (!topic) {
-      showError('Please enter a topic or upload an image first!');
-      btn.disabled = false;
-      btn.innerHTML = '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Analyze Topic';
-      return;
+
+    // ── 2. IMAGE HANDLING ──────────────────────────────────────────────────
+    let imagePart = null;
+    if (uploadedImageBase64) {
+      btn.innerHTML = '<div class="spinner"></div> Reading image...';
+      const detectedTopic = await extractTopicFromImage(uploadedImageBase64, uploadedImageMime);
+      if (!topic && detectedTopic) {
+        topic = detectedTopic;
+        document.getElementById('topicInput').value = topic;
+      } else if (!topic) {
+        topic = 'Current Affairs Topic from Image';
+        document.getElementById('topicInput').value = topic;
+      }
+      imagePart = { inline_data: { mime_type: uploadedImageMime, data: uploadedImageBase64 } };
+      btn.innerHTML = '<div class="spinner"></div> Analyzing...';
     }
 
+    if (!topic) {
+      showError('Please enter a topic or upload an image first!');
+      finishBtn(); return;
+    }
+
+    // ── 3. RUN ALL 6 STEPS ────────────────────────────────────────────────
     setStep(1, 'running');
-    const s1 = await callAPI(PROMPTS.step1(topic, imageCtx), 8192);
-    analysisData.step1 = s1;
-    setStep(1, 'done');
+    const s1 = await callAPIWithImage(PROMPTS.step1(topic, articleContext), imagePart, 8192);
+    analysisData.step1 = s1; setStep(1, 'done');
 
     setStep(2, 'running');
-    const s2 = await callAPI(PROMPTS.step2(topic), 4096);
-    analysisData.step2 = s2;
-    setStep(2, 'done');
+    const s2 = await callAPI(PROMPTS.step2(topic), 3000);
+    analysisData.step2 = s2; setStep(2, 'done');
 
     setStep(3, 'running');
-    const s3 = await callAPI(PROMPTS.step3(topic), 4096);
-    analysisData.step3 = s3;
-    setStep(3, 'done');
+    const s3 = await callAPI(PROMPTS.step3(topic), 3000);
+    analysisData.step3 = s3; setStep(3, 'done');
 
     setStep(4, 'running');
-    const s4 = await callAPI(PROMPTS.step4(topic), 6144);
-    analysisData.step4 = s4;
-    setStep(4, 'done');
+    const s4 = await callAPI(PROMPTS.step4(topic), 5000);
+    analysisData.step4 = s4; setStep(4, 'done');
 
     setStep(5, 'running');
-    const s5 = await callAPI(PROMPTS.step5(topic), 6144);
-    analysisData.step5 = s5;
-    setStep(5, 'done');
+    const s5 = await callAPI(PROMPTS.step5(topic), 4000);
+    analysisData.step5 = s5; setStep(5, 'done');
 
     setStep(6, 'running');
-    const s6 = await callAPI(PROMPTS.step6(topic), 6144);
-    analysisData.step6 = s6;
-    setStep(6, 'done');
+    const s6 = await callAPI(PROMPTS.step6(topic), 5000);
+    analysisData.step6 = s6; setStep(6, 'done');
 
     setStep(7, 'running');
     renderOutput(s1, s2, s3, s4, s5, s6);
@@ -1080,8 +1161,8 @@ async function startAnalysis() {
 
   } catch (err) {
     showError('Something went wrong: ' + err.message + '. Please try again.');
-    btn.disabled = false;
-    btn.innerHTML = '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Analyze Topic';
+  } finally {
+    finishBtn();
   }
 }
 
